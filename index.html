@@ -894,17 +894,10 @@
         <h2 class="font-semibold mb-3">Import from Excel</h2>
         <p class="text-sm text-gray-600 mb-2">
           Supported sheets (case-insensitive):
-          <strong>Programs</strong>, <strong>Students</strong>, <strong>Courses</strong>, <strong>Results</strong>.
+          <strong>Students</strong> only. Use the web app to manage programs, agents, fees, and results.
         </p>
         <ul class="text-sm text-gray-600 list-disc ml-5 mb-3">
-          <li><b>Programs</b>: mqaCode (approval no.), type (Master/PhD), name, mode, projectType (Project/Dissertation/Thesis), duration (years)</li>
-          <li><b>Students</b>: studentId, name, email, phone, intake, program (program name), status</li>
-          <li><b>Courses</b>: code, title, credit hours, program (program name)</li>
-          <li><b>Results</b>: studentId or name, courseCode, semester, mark</li>
-          <li><b>Agents</b>: name, email, phone, agreementLink, agreement, status (Active/Terminated), type (External Agent/Internal Marketing)</li>
-          <li><b>FeeGroups</b>: name, program (program name or mqaCode), agent (agent code or name), registrationFee, tuitionFee, convocationFee, sequence (per agent)</li>
-          <li><b>Invoices</b>: studentId or name, feeGroup (name), feeType (registration/tuition/convocation/manual), amount, paid, status, createdAt</li>
-          <li><b>Payments</b>: studentId or name, feeGroup (fee group name), type (debit/credit/discount), amount, date, note</li>
+          <li><b>Students</b>: studentId, name, email, phone, intake, program (program name), status, registrationDate (optional)</li>
         </ul>
         <input type="file" id="import-file" accept=".xlsx,.xls" class="mb-3" />
         <div class="flex gap-2 items-center">
@@ -921,6 +914,17 @@
           <button id="btn-restore" class="bg-orange-600 text-white rounded px-4 py-2">Restore Backup</button>
           <span id="restore-status" class="text-sm text-gray-600"></span>
         </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow border border-red-200">
+        <h2 class="font-semibold mb-2 text-red-700">Reset All Data</h2>
+        <p class="text-sm text-red-600 mb-3">
+          This clears every program, student, course, result, agent, fee group, invoice, payment, and ledger entry from the local database.
+          Make sure you have a backup before proceeding.
+        </p>
+        <button id="btn-reset-data" class="bg-red-600 hover:bg-red-700 text-white rounded px-4 py-2">
+          Reset Database
+        </button>
       </div>
     </section>
   </div>
@@ -1121,6 +1125,28 @@
       if (m >= 40) return {grade: 'D',  point: 1.33};
       return {grade: 'F', point: 0.00};
     }
+
+    function getTodayIso(){
+      return new Date().toISOString().slice(0,10);
+    }
+
+    function sanitizeRegistrationDate(value){
+      const trimmed = (value || '').toString().trim();
+      if (!trimmed) return getTodayIso();
+      const test = new Date(trimmed);
+      if (isNaN(test.getTime())) return getTodayIso();
+      return trimmed;
+    }
+
+    function ensureStudentRegistrationDefault(){
+      const form = document.getElementById('form-student');
+      if (!form) return;
+      const input = form.querySelector('input[name="registrationDate"]');
+      if (input && !input.value){
+        input.value = getTodayIso();
+      }
+    }
+    ensureStudentRegistrationDefault();
 
     const PROJECT_OPTIONS = ['Project','Dissertation','Thesis'];
     function normalizeProjectType(value){
@@ -2289,11 +2315,10 @@
       const student = await db.students.get(Number(studentId));
       const paymentPlan = student?.paymentPlan || 'lump';
       const registrationDate = student?.registrationDate || new Date().toISOString().slice(0,10);
-      const startDate = new Date(registrationDate || new Date());
+      let startDate = new Date(registrationDate || new Date());
       if (isNaN(startDate.getTime())){
-        startDate.setTime(Date.now());
+        startDate = new Date();
       }
-      startDate.setDate(1); // use early (1st) of the month
       const feeGroup = await db.feeGroups.get(Number(feeGroupId));
       if (!feeGroup) return;
       const existing = await db.invoices.where({studentIdFk:Number(studentId), feeGroupId:Number(feeGroupId)}).toArray();
@@ -2342,7 +2367,6 @@
       const addMonths = (d, n)=>{
         const dt = new Date(d.getTime());
         dt.setMonth(dt.getMonth() + n);
-        dt.setDate(1); // early in the month
         return dt.toISOString().slice(0,10);
       };
 
@@ -2374,6 +2398,49 @@
           });
         }
       }
+    }
+
+    async function adjustInvoicesForRegistrationDate(studentId, registrationDate){
+      if (!studentId) return;
+      const normalized = sanitizeRegistrationDate(registrationDate);
+      let baseDate = new Date(normalized);
+      if (isNaN(baseDate.getTime())){
+        baseDate = new Date();
+      }
+      const invoices = await db.invoices.where('studentIdFk').equals(Number(studentId)).toArray();
+      if (!invoices.length) return;
+      const updates = [];
+      const baseTypes = ['registration','convocation'];
+      invoices.forEach(inv => {
+        const type = (inv.feeType || '').toString().toLowerCase();
+        if (baseTypes.includes(type)){
+          updates.push({ id: inv.id, createdAt: normalized });
+        }
+      });
+      const tuitionInvoices = invoices.filter(inv => {
+        const type = (inv.feeType || '').toString().toLowerCase();
+        return type === 'tuition' || type.startsWith('tuition-');
+      });
+      if (tuitionInvoices.length){
+        const getOrder = (inv) => {
+          const fee = (inv.feeType || '').toString().toLowerCase();
+          if (fee === 'tuition') return 0;
+          const match = fee.match(/^tuition-(\d+)\/(\d+)/);
+          if (match) return parseInt(match[1], 10) || 0;
+          return 0;
+        };
+        tuitionInvoices.sort((a,b)=>{
+          const diff = getOrder(a) - getOrder(b);
+          if (diff !== 0) return diff;
+          return (a.createdAt || '').localeCompare(b.createdAt || '');
+        });
+        tuitionInvoices.forEach((inv, idx) => {
+          const dt = new Date(baseDate.getTime());
+          dt.setMonth(dt.getMonth() + idx);
+          updates.push({ id: inv.id, createdAt: dt.toISOString().slice(0,10) });
+        });
+      }
+      await Promise.all(updates.map(row => db.invoices.update(row.id, { createdAt: row.createdAt })));
     }
 
     function statusFromPaid(amount, paid){
@@ -2971,12 +3038,14 @@
       const fd = new FormData(e.target);
       const data = Object.fromEntries(fd.entries());
       if (!data.name) return alert('Name is required');
+      const normalizedReg = sanitizeRegistrationDate(data.registrationDate);
+      const existingStudent = editingStudentId ? await db.students.get(editingStudentId) : null;
       const payload = {
         studentId: data.studentId?.trim() || undefined,
         name: data.name.trim(),
         email: data.email?.trim(),
         phone: data.phone?.trim(),
-        registrationDate: data.registrationDate || '',
+        registrationDate: normalizedReg,
         intake: data.intake?.trim(),
         programId: data.programId ? Number(data.programId) : null,
         feeGroupId: data.feeGroupId ? Number(data.feeGroupId) : null,
@@ -2988,12 +3057,16 @@
         if (payload.feeGroupId){
           await ensureInvoicesForFeeGroup(editingStudentId, payload.feeGroupId);
         }
+        if (existingStudent && existingStudent.registrationDate !== normalizedReg){
+          await adjustInvoicesForRegistrationDate(editingStudentId, normalizedReg);
+        }
         await syncStudentCourses(editingStudentId, payload.programId);
         alert('Student updated.');
       } else {
         const newId = await db.students.add(payload);
         if (payload.feeGroupId){
           await ensureInvoicesForFeeGroup(newId, payload.feeGroupId);
+          await adjustInvoicesForRegistrationDate(newId, normalizedReg);
         }
         await syncStudentCourses(newId, payload.programId);
         alert('Student saved.');
@@ -3001,6 +3074,7 @@
       editingStudentId = null;
       setStudentFormMode(false);
       e.target.reset();
+      ensureStudentRegistrationDefault();
       await renderStudents();
       await loadProgramsIntoSelects();
       await renderLedgerOverview();
@@ -3011,6 +3085,7 @@
         editingStudentId = null;
         setStudentFormMode(false);
         document.getElementById('form-student').reset();
+        ensureStudentRegistrationDefault();
       });
     }
 
@@ -3126,6 +3201,7 @@
           editingStudentId = null;
           setStudentFormMode(false);
           document.getElementById('form-student').reset();
+          ensureStudentRegistrationDefault();
           await renderStudents();
           await renderResults();
           await renderPayments();
@@ -3866,344 +3942,82 @@
         return desired ? wb.Sheets[desired] : null;
       }
 
-      const added = { programs:0, students:0, courses:0, results:0, agents:0, feeGroups:0, invoices:0, payments:0 };
-
-      // PROGRAMS
-      const wsProg = sheet('Programs');
-      if (wsProg){
-        const rows = XLSX.utils.sheet_to_json(wsProg, {defval:''});
-        for (const r of rows){
-          if (!r.name) continue;
-          const durationStr = (r.duration ?? '').toString().trim();
-          const durationYears = durationStr ? Number(durationStr) : null;
-          const projectType = normalizeProjectType(r.projectType ?? r.projectComponent ?? r.project);
-          const rawLevel = (r.level || r.type || r.programTypeLevel || r.programType)?.toString().trim().toLowerCase();
-          const level = rawLevel === 'phd' ? 'PhD' : 'Master';
-          const mqaRaw = (r.mqaCode || r.mqa || r.approval || '').toString().trim().toUpperCase();
-          const mqaCode = mqaRaw || `AUTO-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
-          const existingMqa = await db.programs.where('mqaCode').equals(mqaCode).first();
-          if (existingMqa) continue;
-          await db.programs.add({
-            name: (r.name || '').toString().trim(),
-            mqaCode,
-            level,
-            mode: (r.mode || '').toString().trim(),
-            projectType,
-            duration: Number.isFinite(durationYears) ? durationYears : null
-          });
-          added.programs++;
-        }
+      const wsStu = sheet('Students');
+      if (!wsStu){
+        status.textContent = 'Only the "Students" sheet can be imported.';
+        return;
       }
 
-      // AGENTS
-      const wsAgents = sheet('Agents');
-      if (wsAgents){
-        const rows = XLSX.utils.sheet_to_json(wsAgents, {defval:''});
-        for (const r of rows){
-          const name = (r.name || '').toString().trim();
-          if (!name) continue;
-          const rawStatus = (r.status || 'Active').toString().trim().toLowerCase();
-          const status = rawStatus === 'terminated' ? 'Terminated' : 'Active';
-          const typeRaw = (r.type || r.agentType || '').toString().trim().toLowerCase();
-          const type = typeRaw === 'internal' ? 'internal' : 'external';
-          await db.agents.add({
-            name,
+      const rows = XLSX.utils.sheet_to_json(wsStu, {defval:''});
+      const programRecords = await db.programs.toArray();
+      const pmapByName = Object.fromEntries(programRecords.map(p=>[(p.name || '').toString().trim(), p.id]));
+      const pmapByMqa = Object.fromEntries(programRecords.map(p=>[(p.mqaCode || '').toString().trim().toUpperCase(), p.id]));
+      const feeGroupRecords = await db.feeGroups.toArray();
+      const fgmapByName = Object.fromEntries(feeGroupRecords.map(fg=>[(fg.name || '').toString().trim(), fg.id]));
+      const fgmapByCode = Object.fromEntries(feeGroupRecords.map(fg=>[formatFeeGroupCode(fg.agentId, fg.sequence).toUpperCase(), fg.id]));
+      let addedStudents = 0;
+
+      for (const r of rows){
+        const name = (r.name || '').toString().trim();
+        if (!name) continue;
+
+        const studentId = (r.studentId || '').toString().trim();
+        let existing = null;
+        if (studentId){
+          existing = await db.students.where('studentId').equals(studentId).first();
+        }
+
+        const programName = (r.program || '').toString().trim();
+        const programMqa = (r.programMqa || r.programCode || r.mqaCode || '').toString().trim().toUpperCase();
+        let programId = null;
+        if (programMqa && pmapByMqa[programMqa]){
+          programId = pmapByMqa[programMqa];
+        } else if (programName && pmapByName[programName]){
+          programId = pmapByName[programName];
+        }
+        const feeGroupCodeKey = (r.feeGroupCode || r.fgCode || '').toString().trim().toUpperCase();
+        const feeGroupNameKey = (r.feeGroup || '').toString().trim();
+        let feeGroupId = null;
+        if (feeGroupCodeKey && fgmapByCode[feeGroupCodeKey]){
+          feeGroupId = fgmapByCode[feeGroupCodeKey];
+        } else if (feeGroupNameKey){
+          feeGroupId = fgmapByName[feeGroupNameKey] || null;
+        }
+        const paymentPlan = (r.paymentPlan || '').toString().trim() || 'lump';
+        const registrationDate = sanitizeRegistrationDate((r.registrationDate || '').toString().trim());
+
+        if (!existing){
+          const newId = await db.students.add({
+            studentId: studentId || undefined,
+            name: name,
             email: (r.email || '').toString().trim(),
             phone: (r.phone || '').toString().trim(),
-            agreement: (r.agreement || '').toString().trim(),
-            agreementLink: (r.agreementLink || r.link || '').toString().trim(),
-            status,
-            type,
-            terminatedAt: status === 'Terminated' ? (r.terminatedAt || '').toString().trim() : '',
-            terminatedReason: status === 'Terminated' ? (r.terminatedReason || '').toString().trim() : ''
-          });
-          added.agents++;
-        }
-      }
-
-      // STUDENTS (with de-dup by studentId)
-      const wsStu = sheet('Students');
-      if (wsStu){
-        const rows = XLSX.utils.sheet_to_json(wsStu, {defval:''});
-        const programRecords = await db.programs.toArray();
-        const pmapByName = Object.fromEntries(programRecords.map(p=>[(p.name || '').toString().trim(), p.id]));
-        const pmapByMqa = Object.fromEntries(programRecords.map(p=>[(p.mqaCode || '').toString().trim().toUpperCase(), p.id]));
-        const feeGroupRecords = await db.feeGroups.toArray();
-        const fgmapByName = Object.fromEntries(feeGroupRecords.map(fg=>[(fg.name || '').toString().trim(), fg.id]));
-        const fgmapByCode = Object.fromEntries(feeGroupRecords.map(fg=>[formatFeeGroupCode(fg.agentId, fg.sequence).toUpperCase(), fg.id]));
-        for (const r of rows){
-          const name = (r.name || '').toString().trim();
-          if (!name) continue;
-
-          const studentId = (r.studentId || '').toString().trim();
-          let existing = null;
-          if (studentId){
-            existing = await db.students.where('studentId').equals(studentId).first();
-          }
-
-          const programName = (r.program || '').toString().trim();
-          const programMqa = (r.programMqa || r.programCode || r.mqaCode || '').toString().trim().toUpperCase();
-          let programId = null;
-          if (programMqa && pmapByMqa[programMqa]){
-            programId = pmapByMqa[programMqa];
-          } else if (programName && pmapByName[programName]){
-            programId = pmapByName[programName];
-          }
-          const feeGroupCodeKey = (r.feeGroupCode || r.fgCode || '').toString().trim().toUpperCase();
-          const feeGroupNameKey = (r.feeGroup || '').toString().trim();
-          let feeGroupId = null;
-          if (feeGroupCodeKey && fgmapByCode[feeGroupCodeKey]){
-            feeGroupId = fgmapByCode[feeGroupCodeKey];
-          } else if (feeGroupNameKey){
-            feeGroupId = fgmapByName[feeGroupNameKey] || null;
-          }
-          const paymentPlan = (r.paymentPlan || '').toString().trim() || 'lump';
-          const registrationDate = (r.registrationDate || '').toString().trim();
-
-          if (!existing){
-            const newId = await db.students.add({
-              studentId: studentId || undefined,
-              name: name,
-              email: (r.email || '').toString().trim(),
-              phone: (r.phone || '').toString().trim(),
-              intake: (r.intake || '').toString().trim(),
-              programId,
-              feeGroupId,
-              paymentPlan,
-              registrationDate,
-              status: (r.status || 'Active').toString().trim() || 'Active'
-            });
-            added.students++;
-            if (feeGroupId){
-              await ensureInvoicesForFeeGroup(newId, feeGroupId);
-            }
-          }
-        }
-      }
-
-      // COURSES
-      const wsCourse = sheet('Courses');
-      if (wsCourse){
-        const rows = XLSX.utils.sheet_to_json(wsCourse, {defval:''});
-        const pmap = Object.fromEntries((await db.programs.toArray()).map(p=>[(p.name || '').toString().trim().toLowerCase(), p.id]));
-        for (const r of rows){
-          const code = (r.code || '').toString().trim();
-          if (!code) continue;
-          const title = (r.title || '').toString().trim();
-          const credit = Number(r.credit) || 0;
-          const programName = (r.program || '').toString().trim().toLowerCase();
-          const programId = pmap[programName] || null;
-          if (!programId) continue;
-
-          // Simple dedup: skip if code already exists
-          const existing = await db.courses.where('code').equals(code).first();
-          if (existing) continue;
-
-          const newCourseId = await db.courses.add({ code, title, credit, programId });
-          await assignCourseToStudents(newCourseId, programId);
-          added.courses++;
-        }
-      }
-
-      // FEE GROUPS
-      const wsFG = sheet('FeeGroups');
-      if (wsFG){
-        const rows = XLSX.utils.sheet_to_json(wsFG, {defval:''});
-        const programs = await db.programs.toArray();
-        const agents = await db.agents.toArray();
-        const existingFeeGroups = await db.feeGroups.toArray();
-        const pmapByName = Object.fromEntries(programs.map(p=>[(p.name || '').toString().trim(), p.id]));
-        const pmapByMqa = Object.fromEntries(programs.map(p=>[(p.mqaCode || '').toString().trim().toUpperCase(), p.id]));
-        const amapByName = Object.fromEntries(agents.map(a=>[(a.name || '').toString().trim(), a.id]));
-        const amapByCode = Object.fromEntries(agents.map(a=>[formatAgentCode(a.id).toUpperCase(), a.id]));
-        const nextSeqMap = {};
-        existingFeeGroups.forEach(fg => {
-          if (!fg.agentId) return;
-          nextSeqMap[fg.agentId] = Math.max(nextSeqMap[fg.agentId] || 0, Number(fg.sequence) || 0);
-        });
-        for (const r of rows){
-          const name = (r.name || '').toString().trim();
-          if (!name) continue;
-          const programName = (r.program || '').toString().trim();
-          const programMqa = (r.programMqa || r.programCode || r.mqaCode || '').toString().trim().toUpperCase();
-          const programId = programMqa ? (pmapByMqa[programMqa] || null) : (pmapByName[programName] || null);
-          const agentName = (r.agent || '').toString().trim();
-          const agentCode = (r.agentCode || '').toString().trim().toUpperCase();
-          const agentId = agentCode ? (amapByCode[agentCode] || null) : (amapByName[agentName] || null);
-          if (!agentId) continue;
-          let sequence = Number(r.sequence);
-          if (!Number.isFinite(sequence) || sequence <= 0){
-            sequence = (nextSeqMap[agentId] || 0) + 1;
-          }
-          nextSeqMap[agentId] = Math.max(nextSeqMap[agentId] || 0, sequence);
-          await db.feeGroups.add({
-            name,
+            intake: (r.intake || '').toString().trim(),
             programId,
-            agentId,
-            sequence,
-            registrationFee: Number(r.registrationFee) || 0,
-            tuitionFee: Number(r.tuitionFee) || 0,
-            convocationFee: Number(r.convocationFee) || 0
-          });
-          added.feeGroups++;
-        }
-      }
-
-      // INVOICES (map student by studentId or name; fee group by name)
-      const wsInv = sheet('Invoices');
-      if (wsInv){
-        const rows = XLSX.utils.sheet_to_json(wsInv, {defval:''});
-        const students = await db.students.toArray();
-        const feeGroups = await db.feeGroups.toArray();
-        const sById = Object.fromEntries(students.map(s=>[(s.studentId || '').toString().trim(), s.id]));
-        const sByName = Object.fromEntries(students.map(s=>[(s.name || '').toString().trim(), s.id]));
-        const fgByName = Object.fromEntries(feeGroups.map(fg=>[(fg.name || '').toString().trim(), fg.id]));
-        const fgByCode = Object.fromEntries(feeGroups.map(fg=>[formatFeeGroupCode(fg.agentId, fg.sequence).toUpperCase(), fg.id]));
-
-        for (const r of rows){
-          const studentIdFk = sById[(r.studentId || '').toString().trim()] ||
-                              sByName[(r.name || '').toString().trim()];
-          if (!studentIdFk) continue;
-          const feeGroupCodeKey = (r.feeGroupCode || r.fgCode || '').toString().trim().toUpperCase();
-          const feeGroupId = feeGroupCodeKey ? (fgByCode[feeGroupCodeKey] || null) : (fgByName[(r.feeGroup || '').toString().trim()] || null);
-          const feeType = (r.feeType || '').toString().trim() || 'manual';
-          const amount = Number(r.amount);
-          if (isNaN(amount) || amount <= 0) continue;
-          const paid = Number(r.paid) || 0;
-          const status = (r.status || '').toString().trim() || statusFromPaid(amount, paid);
-          const createdAt = (r.createdAt || '').toString().trim() || new Date().toISOString().slice(0,10);
-          await db.invoices.add({
-            studentIdFk,
             feeGroupId,
-            feeType,
-            amount,
-            paid,
-            status,
-            createdAt
+            paymentPlan,
+            registrationDate,
+            status: (r.status || 'Active').toString().trim() || 'Active'
           });
-          added.invoices++;
+          addedStudents++;
+          if (feeGroupId){
+            await ensureInvoicesForFeeGroup(newId, feeGroupId);
+            await adjustInvoicesForRegistrationDate(newId, registrationDate);
+          }
+          await syncStudentCourses(newId, programId);
         }
       }
 
-      // RESULTS (map student by studentId or name; course by courseCode)
-      const wsRes = sheet('Results');
-      if (wsRes){
-        const rows = XLSX.utils.sheet_to_json(wsRes, {defval:''});
-        const students = await db.students.toArray();
-        const courses = await db.courses.toArray();
-        const sById = Object.fromEntries(students.map(s=>[(s.studentId || '').toString().trim(), s.id]));
-        const sByName = Object.fromEntries(students.map(s=>[(s.name || '').toString().trim(), s.id]));
-        const cByCode = Object.fromEntries(courses.map(c=>[c.code.trim(), c.id]));
-
-        for (const r of rows){
-          const sem = (r.semester || '').toString().trim();
-          const mark = Number(r.mark);
-          const courseIdFk = cByCode[(r.courseCode || '').toString().trim()];
-          let studentIdFk = sById[(r.studentId || '').toString().trim()] ||
-                            sByName[(r.name || '').toString().trim()];
-
-          if (!studentIdFk || !courseIdFk || !sem || isNaN(mark)) continue; // skip bad rows
-
-          const course = await db.courses.get(courseIdFk);
-          const g = gradeFromMark(mark);
-          await db.results.add({
-            studentIdFk,
-            courseIdFk,
-            semester: sem,
-            mark,
-            grade: g.grade,
-            point: g.point,
-            credit: Number(course?.credit) || 0
-          });
-          added.results++;
-        }
-      }
-
-      // PAYMENTS (map student by studentId or name; fee group by name)
-      const wsPay = sheet('Payments');
-      if (wsPay){
-        const rows = XLSX.utils.sheet_to_json(wsPay, {defval:''});
-        const students = await db.students.toArray();
-        const feeGroups = await db.feeGroups.toArray();
-        const invoices = await db.invoices.toArray();
-        const sById = Object.fromEntries(students.map(s=>[(s.studentId || '').toString().trim(), s.id]));
-        const sByName = Object.fromEntries(students.map(s=>[(s.name || '').toString().trim(), s.id]));
-        const fgByName = Object.fromEntries(feeGroups.map(fg=>[(fg.name || '').toString().trim(), fg.id]));
-        const fgByCode = Object.fromEntries(feeGroups.map(fg=>[formatFeeGroupCode(fg.agentId, fg.sequence).toUpperCase(), fg.id]));
-        const invById = Object.fromEntries(invoices.map(inv=>[inv.id, inv]));
-        const invByKey = {};
-        invoices.forEach(inv=>{
-          const key = `${inv.studentIdFk}::${inv.feeGroupId||''}::${(inv.feeType||'').toString().toLowerCase()}`;
-          invByKey[key] = inv;
-        });
-
-        for (const r of rows){
-          const studentIdFk = sById[(r.studentId || '').toString().trim()] ||
-                              sByName[(r.name || '').toString().trim()];
-          if (!studentIdFk) continue;
-          const typeRaw = (r.type || 'debit').toString().toLowerCase();
-          const type = ['debit','credit','discount'].includes(typeRaw) ? typeRaw : 'debit';
-          const amount = Number(r.amount);
-          if (isNaN(amount) || amount < 0) continue;
-          const fgCodeKey = (r.feeGroupCode || r.fgCode || '').toString().trim().toUpperCase();
-          const feeGroupId = fgCodeKey ? (fgByCode[fgCodeKey] || null) : (fgByName[(r.feeGroup || '').toString().trim()] || null);
-          const invoiceIdRaw = Number(r.invoiceId);
-          const invoiceFee = (r.invoiceFee || '').toString().trim().toLowerCase();
-          let invoiceIdFk = !isNaN(invoiceIdRaw) && invById[invoiceIdRaw] ? invoiceIdRaw : null;
-          if (!invoiceIdFk && invoiceFee){
-            const key = `${studentIdFk}::${feeGroupId||''}::${invoiceFee}`;
-            invoiceIdFk = invByKey[key]?.id || null;
-          }
-          const date = (r.date || '').toString().trim() || new Date().toISOString().slice(0,10);
-          if (invoiceIdFk && type !== 'debit'){
-            const inv = await db.invoices.get(invoiceIdFk);
-            if (inv){
-              const newPaid = Math.min((Number(inv.paid)||0) + amount, Number(inv.amount)||0);
-              const status = statusFromPaid(inv.amount || 0, newPaid);
-              await db.invoices.update(inv.id, { paid: newPaid, status });
-            }
-          }
-          // If type is debit and there is no invoice, create one as manual
-          if (type === 'debit' && !invoiceIdFk){
-            const createdId = await db.invoices.add({
-              studentIdFk,
-              feeGroupId,
-              feeType: invoiceFee || 'manual',
-              amount,
-              paid: 0,
-              status: 'open',
-              createdAt: date
-            });
-            invoiceIdFk = createdId;
-            added.invoices++;
-          }
-          await db.payments.add({
-            studentIdFk,
-            feeGroupId,
-            invoiceIdFk,
-            type,
-            amount,
-            note: (r.note || '').toString().trim(),
-            date
-          });
-          added.payments++;
-        }
-      }
-
-      status.textContent = `Imported - Programs: ${added.programs}, Students: ${added.students}, Courses: ${added.courses}, Results: ${added.results}, Agents: ${added.agents}, FeeGroups: ${added.feeGroups}, Invoices: ${added.invoices}, Payments: ${added.payments}`;
-      // Clear file input for next import
       const importInput = document.getElementById('import-file');
       if (importInput) importInput.value = '';
+      status.textContent = addedStudents
+        ? `Imported ${addedStudents} student${addedStudents === 1 ? '' : 's'}.`
+        : 'No new students were imported.';
 
       await Promise.all([
-        renderPrograms(),
         renderStudents(),
-        renderCourses(),
-        renderResults(),
-        renderAgents(),
-        renderFeeGroups(),
-        renderPayments(),
-        loadProgramsIntoSelects()
+        loadProgramsIntoSelects(),
+        renderLedgerOverview()
       ]);
     }
 
@@ -4305,6 +4119,55 @@
         renderPayments(),
         loadProgramsIntoSelects()
       ]);
+    }
+
+    async function resetAllData(){
+      const first = confirm('This will DELETE all data stored in this browser. Continue?');
+      if (!first) return;
+      const second = confirm('Are you absolutely sure? This action cannot be undone.');
+      if (!second) return;
+      await db.transaction('rw',
+        db.programs,
+        db.students,
+        db.courses,
+        db.results,
+        db.agents,
+        db.feeGroups,
+        db.payments,
+        db.invoices,
+        db.studentCourses,
+        async () => {
+          await Promise.all([
+            db.programs.clear(),
+            db.students.clear(),
+            db.courses.clear(),
+            db.results.clear(),
+            db.agents.clear(),
+            db.feeGroups.clear(),
+            db.payments.clear(),
+            db.invoices.clear(),
+            db.studentCourses.clear()
+          ]);
+        }
+      );
+      const restoreStatus = document.getElementById('restore-status');
+      if (restoreStatus){
+        restoreStatus.textContent = 'Database reset at ' + new Date().toLocaleTimeString();
+      }
+      ensureStudentRegistrationDefault();
+      await Promise.all([
+        renderPrograms(),
+        renderStudents(),
+        renderCourses(),
+        renderResults(),
+        renderAgents(),
+        renderFeeGroups(),
+        renderPayments(),
+        renderLedgerOverview(),
+        renderDashboard(),
+        loadProgramsIntoSelects()
+      ]);
+      alert('All data has been cleared from this browser.');
     }
 
     // ---------------------- Button wiring ----------------------
@@ -4473,6 +4336,10 @@
       if (!f) return alert('Choose a .zip backup file first.');
       await restoreBackupZip(f);
     });
+    const resetBtn = document.getElementById('btn-reset-data');
+    if (resetBtn){
+      resetBtn.addEventListener('click', resetAllData);
+    }
     // ---------------------- Init ----------------------
     (async function init(){
       await renderPrograms();
