@@ -814,63 +814,64 @@
       </div>
 
       <div class="bg-white p-4 rounded shadow">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-2">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
           <div>
             <h3 class="font-semibold">Payments / Discounts</h3>
-            <p class="text-sm text-gray-600">Apply payments or discounts to specific invoices.</p>
+            <p class="text-sm text-gray-600">Select an invoice above, then record a payment, discount, or manual charge.</p>
           </div>
           <div class="text-sm text-gray-700" id="ledger-balance-summary"></div>
         </div>
-        <form id="form-ledger-payment" class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
-          <label class="text-sm text-gray-700">
-            Invoice
-            <select class="border rounded px-3 py-2 w-full" name="invoiceId" id="ledger-invoice">
-              <option value="">Select Invoice</option>
-            </select>
-          </label>
-          <label class="text-sm text-gray-700">
-            Type
-            <select class="border rounded px-3 py-2 w-full" name="type">
-              <option value="credit">Credit (Payment)</option>
-              <option value="discount">Discount (Reduction)</option>
-              <option value="debit">Manual Charge</option>
-            </select>
-          </label>
-          <label class="text-sm text-gray-700">
-            Amount
-            <input class="border rounded px-3 py-2 w-full" name="amount" type="number" step="0.01" min="0" required />
-          </label>
-          <label class="text-sm text-gray-700">
-            Date
-            <input class="border rounded px-3 py-2 w-full" name="date" type="date" />
-          </label>
-          <label class="text-sm text-gray-700">
-            Note
-            <input class="border rounded px-3 py-2 w-full" name="note" />
-          </label>
-          <div></div><div></div>
-          <div class="flex gap-2 col-span-1 md:col-span-4 items-center flex-wrap">
-            <button class="bg-blue-600 text-white rounded px-4 py-2 mt-1" id="ledger-payment-submit">Save Payment</button>
-            <button type="button" class="hidden bg-gray-500 text-white rounded px-4 py-2 mt-1" id="ledger-payment-cancel">Cancel Edit</button>
-            <span id="ledger-payment-editing-label" class="hidden text-sm text-gray-600 mt-2">Editing existing payment...</span>
+        <div class="grid grid-cols-1 xl:grid-cols-5 gap-4">
+          <form id="form-ledger-payment" class="xl:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="text-sm text-gray-700 sm:col-span-2">
+              <p class="font-semibold text-gray-600">Selected Invoice</p>
+              <p class="text-xs text-gray-500 mb-1">Click a row in the invoice table above to choose the target invoice.</p>
+              <div id="ledger-selected-invoice" class="border rounded px-3 py-2 bg-gray-50 text-gray-800">No invoice selected</div>
+            </div>
+            <label class="text-sm text-gray-700">
+              Type
+              <select class="border rounded px-3 py-2 w-full" name="type">
+                <option value="credit">Credit (Payment)</option>
+                <option value="discount">Discount (Reduction)</option>
+                <option value="debit">Manual Charge</option>
+              </select>
+            </label>
+            <label class="text-sm text-gray-700">
+              Amount
+              <input class="border rounded px-3 py-2 w-full" name="amount" type="number" step="0.01" min="0" required />
+            </label>
+            <label class="text-sm text-gray-700">
+              Date
+              <input class="border rounded px-3 py-2 w-full" name="date" type="date" />
+            </label>
+            <label class="text-sm text-gray-700">
+              Note
+              <input class="border rounded px-3 py-2 w-full" name="note" />
+            </label>
+            <div class="flex gap-2 sm:col-span-2 items-center flex-wrap">
+              <button class="bg-blue-600 text-white rounded px-4 py-2 mt-1" id="ledger-payment-submit">Save Payment</button>
+              <button type="button" class="hidden bg-gray-500 text-white rounded px-4 py-2 mt-1" id="ledger-payment-cancel">Cancel Edit</button>
+              <span id="ledger-payment-editing-label" class="hidden text-sm text-gray-600 mt-2">Editing existing payment...</span>
+            </div>
+          </form>
+          <div class="xl:col-span-3 border-t xl:border-t-0 xl:border-l border-gray-100 pt-4 xl:pt-0 xl:pl-4">
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-sm" id="tbl-ledger-payments">
+                <thead>
+                  <tr>
+                    <th class="py-2 pr-4 text-left border-b">#</th>
+                    <th class="py-2 pr-4 text-left border-b">Date</th>
+                    <th class="py-2 pr-4 text-left border-b">Type</th>
+                    <th class="py-2 pr-4 text-left border-b">Amount</th>
+                    <th class="py-2 pr-4 text-left border-b">Applied To</th>
+                    <th class="py-2 pr-4 text-left border-b">Note</th>
+                    <th class="py-2 pr-4 text-left border-b">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="rows-ledger-payments"></tbody>
+              </table>
+            </div>
           </div>
-        </form>
-
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-sm" id="tbl-ledger-payments">
-            <thead>
-              <tr>
-                <th class="py-2 pr-4 text-left border-b">#</th>
-                <th class="py-2 pr-4 text-left border-b">Date</th>
-                <th class="py-2 pr-4 text-left border-b">Type</th>
-                <th class="py-2 pr-4 text-left border-b">Amount</th>
-                <th class="py-2 pr-4 text-left border-b">Applied To</th>
-                <th class="py-2 pr-4 text-left border-b">Note</th>
-                <th class="py-2 pr-4 text-left border-b">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="rows-ledger-payments"></tbody>
-          </table>
         </div>
       </div>
     </section>
@@ -2569,16 +2570,17 @@
       const profileEl = document.getElementById('ledger-profile');
       const invoiceTbody = document.getElementById('rows-ledger-invoices');
       const paymentTbody = document.getElementById('rows-ledger-payments');
-      const invoiceSel = document.getElementById('ledger-invoice');
       const summaryEl = document.getElementById('ledger-balance-summary');
-      if (!profileEl || !invoiceTbody || !paymentTbody || !invoiceSel || !summaryEl) return;
+      const selectedInvoiceDisplay = document.getElementById('ledger-selected-invoice');
+      if (!profileEl || !invoiceTbody || !paymentTbody || !summaryEl || !selectedInvoiceDisplay) return;
 
       if (!studentId){
         profileEl.textContent = 'Select a student to view details.';
         invoiceTbody.innerHTML = '';
         paymentTbody.innerHTML = '';
-        invoiceSel.innerHTML = '<option value=\"\">Select Invoice</option>';
         summaryEl.textContent = '';
+        selectedLedgerInvoiceId = null;
+        selectedInvoiceDisplay.textContent = 'No invoice selected';
         return;
       }
 
@@ -2616,6 +2618,10 @@
       // Invoices
       invoices.sort((a,b)=> (a.createdAt||'').localeCompare(b.createdAt||''));
       invoiceTbody.innerHTML = '';
+      const hasSelection = invoices.some(inv => inv.id === selectedLedgerInvoiceId);
+      if (!hasSelection){
+        selectedLedgerInvoiceId = null;
+      }
       let totalCharge = 0, totalPaid = 0;
       for (let i=0;i<invoices.length;i++){
         const inv = invoices[i];
@@ -2624,29 +2630,42 @@
         const balance = amount - paid;
         totalCharge += amount;
         totalPaid += paid;
+        const isSelected = selectedLedgerInvoiceId === inv.id;
         const tr = document.createElement('tr');
+        tr.dataset.invoiceId = inv.id;
+        tr.className = `cursor-pointer ${isSelected ? 'bg-purple-50 ring-2 ring-purple-400' : ''}`;
         tr.innerHTML = `
           <td class="py-2 pr-4">${i+1}</td>
           <td class="py-2 pr-4 capitalize">${inv.feeType || '-'}</td>
           <td class="py-2 pr-4">${feeGroup?.name || '-'}</td>
-          <td class="py-2 pr-4">${amount.toFixed(2)}</td>
-          <td class="py-2 pr-4">${paid.toFixed(2)}</td>
-          <td class="py-2 pr-4">${balance.toFixed(2)}</td>
-          <td class="py-2 pr-4">${inv.status || 'open'}</td>
+          <td class="py-2 pr-4">${formatMoney(amount)}</td>
+          <td class="py-2 pr-4">${formatMoney(paid)}</td>
+          <td class="py-2 pr-4">${formatMoney(balance)}</td>
+          <td class="py-2 pr-4 capitalize">${inv.status || 'open'}</td>
           <td class="py-2 pr-4">${inv.createdAt || '-'}</td>
         `;
         invoiceTbody.appendChild(tr);
       }
-
-      // Invoice select list
-      invoiceSel.innerHTML = '<option value=\"\">Select Invoice</option>';
-      invoices.forEach(inv => {
-        const bal = (Number(inv.amount)||0) - (Number(inv.paid)||0);
-        const opt = document.createElement('option');
-        opt.value = inv.id;
-        opt.textContent = `${inv.feeType || 'Invoice'} - Bal ${bal.toFixed(2)}`;
-        invoiceSel.appendChild(opt);
-      });
+      if (selectedLedgerInvoiceId){
+        const currentInvoice = invoices.find(inv => inv.id === selectedLedgerInvoiceId);
+        if (currentInvoice){
+          const balance = formatMoney(calculateInvoiceBalance(currentInvoice));
+          selectedInvoiceDisplay.textContent = `${(currentInvoice.feeType || 'Fee').toString().toUpperCase()} — RM ${formatMoney(currentInvoice.amount)} (Balance: ${balance})`;
+          const form = document.getElementById('form-ledger-payment');
+          if (form && !editingLedgerPaymentId){
+            if (form.amount){
+              form.amount.value = (Number(currentInvoice.amount) - Number(currentInvoice.paid) || 0).toFixed(2);
+            }
+            if (form.date && !form.date.value){
+              form.date.value = new Date().toISOString().slice(0,10);
+            }
+          }
+        } else {
+          selectedInvoiceDisplay.textContent = invoices.length ? 'Click an invoice row to select.' : 'No invoices available.';
+        }
+      } else {
+        selectedInvoiceDisplay.textContent = invoices.length ? 'Click an invoice row to select.' : 'No invoices available.';
+      }
 
       // Payments
       paymentTbody.innerHTML = '';
@@ -3009,6 +3028,7 @@
     setStudentFormMode(false);
 
     let editingLedgerPaymentId = null;
+    let selectedLedgerInvoiceId = null;
     const ledgerPaymentSubmitBtn = document.getElementById('ledger-payment-submit');
     const ledgerPaymentCancelBtn = document.getElementById('ledger-payment-cancel');
     const ledgerPaymentEditingLabel = document.getElementById('ledger-payment-editing-label');
@@ -3022,6 +3042,22 @@
         ledgerPaymentSubmitBtn.textContent = 'Save Payment';
         ledgerPaymentCancelBtn.classList.add('hidden');
         ledgerPaymentEditingLabel.classList.add('hidden');
+        const form = document.getElementById('form-ledger-payment');
+        if (form){
+          const amountInput = form.querySelector('input[name=\"amount\"]');
+          const dateInput = form.querySelector('input[name=\"date\"]');
+          if (selectedLedgerInvoiceId){
+            const cachedRow = document.querySelector(`tr[data-invoice-id=\"${selectedLedgerInvoiceId}\"]`);
+            if (cachedRow && amountInput){
+              const balanceCell = cachedRow.children[5]?.textContent || '';
+              const numeric = Number(balanceCell.replace(/[^0-9.-]/g,'')) || 0;
+              amountInput.value = numeric ? numeric.toFixed(2) : '';
+            }
+          }
+          if (dateInput){
+            dateInput.value = new Date().toISOString().slice(0,10);
+          }
+        }
       }
     }
     setLedgerPaymentFormMode(false);
@@ -3469,6 +3505,7 @@
     const ledgerStudentSel = document.getElementById('ledger-student');
     if (ledgerStudentSel){
       ledgerStudentSel.addEventListener('change', async (e)=>{
+        selectedLedgerInvoiceId = null;
         await renderLedger(e.target.value);
         const form = document.getElementById('form-ledger-payment');
         if (form) form.reset();
@@ -3478,6 +3515,19 @@
     }
 
     // Ledger: payment table actions (edit/remove)
+    const ledgerInvoiceRows = document.getElementById('rows-ledger-invoices');
+    if (ledgerInvoiceRows){
+      ledgerInvoiceRows.addEventListener('click', async (e) => {
+        const row = e.target.closest('tr[data-invoice-id]');
+        if (!row) return;
+        selectedLedgerInvoiceId = row.dataset.invoiceId ? Number(row.dataset.invoiceId) : null;
+        const sid = document.getElementById('ledger-student')?.value;
+        if (sid){
+          await renderLedger(sid);
+        }
+      });
+    }
+
     const ledgerPaymentRows = document.getElementById('rows-ledger-payments');
     if (ledgerPaymentRows){
       ledgerPaymentRows.addEventListener('click', async (e) => {
@@ -3489,11 +3539,15 @@
         if (target.classList.contains('btn-payment-edit')){
           const payment = await db.payments.get(pid);
           if (!payment || payment.deleted) return;
+          const currentStudentId = document.getElementById('ledger-student')?.value;
+          selectedLedgerInvoiceId = payment.invoiceIdFk || null;
+          if (currentStudentId){
+            await renderLedger(currentStudentId);
+          }
           const form = document.getElementById('form-ledger-payment');
           if (form){
             form.type.value = payment.type || 'credit';
             form.amount.value = payment.amount || '';
-            form.invoiceId.value = payment.invoiceIdFk || '';
             form.date.value = payment.date || '';
             form.note.value = payment.note || '';
           }
@@ -3569,7 +3623,7 @@
       const amount = Number(data.amount);
       if (isNaN(amount) || amount <= 0) return alert('Amount must be positive.');
       const type = data.type || 'credit';
-      const invoiceId = data.invoiceId ? Number(data.invoiceId) : null;
+      const invoiceId = selectedLedgerInvoiceId ? Number(selectedLedgerInvoiceId) : null;
       if ((type === 'credit' || type === 'discount') && !invoiceId && !editingLedgerPaymentId){
         return alert('Select an invoice to apply the payment/discount.');
       }
@@ -3617,6 +3671,7 @@
             date: today,
             lastChangeReason: ''
           });
+          selectedLedgerInvoiceId = newInvId;
         } else {
           await applyPaymentToInvoice({
             studentId: Number(sid),
@@ -4364,3 +4419,4 @@
   </footer>
 </body>
 </html>
+
