@@ -1,0 +1,3592 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>PG Student Manager — Stage 3</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Tailwind (quick styling) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Dexie (IndexedDB helper) -->
+  <script src="https://unpkg.com/dexie@4/dist/dexie.min.js"></script>
+  <!-- SheetJS (Excel import/export) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- JSZip (zip backups) -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <!-- FileSaver (save blobs) -->
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+</head>
+<body class="bg-gray-50 text-gray-800">
+  <div class="max-w-7xl mx-auto p-4">
+    <header class="mb-6">
+      <h1 class="text-2xl font-bold">Postgraduate Student Manager</h1>
+      <p class="text-sm text-gray-600">Stage 3 · Excel Import/Export & Full Backup</p>
+    </header>
+
+    <!-- Tabs -->
+    <div class="mb-4 flex gap-2 flex-wrap">
+      <button class="tab px-3 py-2 rounded bg-blue-600 text-white" data-tab="students">Students</button>
+      <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="programs">Programs</button>
+      <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="results">Results</button>
+      <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="reports">Student Results</button>
+      <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="finance">Agent</button>
+      <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="ledger">Finance</button>
+      <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="import">Import/Export</button>
+    </div>
+
+    <!-- STUDENTS -->
+    <section id="panel-students" class="space-y-4">
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold mb-3">Add Student</h2>
+        <form id="form-student" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <label class="text-sm text-gray-700">
+            Student ID (optional)
+            <input class="border rounded px-3 py-2 w-full" name="studentId" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Full Name
+            <input class="border rounded px-3 py-2 w-full" name="name" required />
+          </label>
+          <label class="text-sm text-gray-700">
+            Email
+            <input class="border rounded px-3 py-2 w-full" name="email" type="email" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Phone
+            <input class="border rounded px-3 py-2 w-full" name="phone" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Registration Date
+            <input class="border rounded px-3 py-2 w-full" name="registrationDate" type="date" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Semester (e.g. 2025-02)
+            <input class="border rounded px-3 py-2 w-full" name="intake" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Program
+            <select class="border rounded px-3 py-2 w-full" name="programId" id="student-program">
+              <option value="">Select Program</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Fee Group (optional)
+            <select class="border rounded px-3 py-2 w-full" name="feeGroupId" id="student-feegroup">
+              <option value="">Select Fee Group</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Payment Plan
+            <select class="border rounded px-3 py-2 w-full" name="paymentPlan" id="student-payment-plan">
+              <option value="lump">Lump Sum</option>
+              <option value="installment6">6-Month Installment</option>
+              <option value="installment12">12-Month Installment</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Status
+            <select class="border rounded px-3 py-2 w-full" name="status">
+              <option value="Active">Active</option>
+              <option value="Defer">Defer</option>
+              <option value="Withdraw">Withdraw</option>
+            </select>
+          </label>
+          <div class="col-span-1 md:col-span-3 flex items-center gap-3">
+            <button id="student-submit" class="bg-blue-600 text-white rounded px-4 py-2 mt-1">
+              Save Student
+            </button>
+            <button type="button" id="student-cancel-edit" class="hidden bg-gray-500 text-white rounded px-4 py-2 mt-1">
+              Cancel Edit
+            </button>
+            <span id="student-editing-label" class="hidden text-sm text-gray-600 mt-1">Editing existing student…</span>
+          </div>
+        </form>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold">Students</h2>
+          <button id="refresh-students" class="text-sm px-3 py-1 rounded bg-gray-100">Refresh</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm" id="tbl-students">
+            <thead>
+              <tr class="text-left border-b">
+                <th class="py-2 pr-4">#</th>
+                <th class="py-2 pr-4">Student ID</th>
+                <th class="py-2 pr-4">Name</th>
+                <th class="py-2 pr-4">Program</th>
+                <th class="py-2 pr-4">Intake</th>
+                <th class="py-2 pr-4">Status</th>
+                <th class="py-2 pr-4">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="rows-students"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROGRAMS -->
+    <section id="panel-programs" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold mb-3">Add Program</h2>
+        <form id="form-program" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <label class="text-sm text-gray-700">
+            Program Name (e.g. MBA)
+            <input class="border rounded px-3 py-2 w-full" name="name" required />
+          </label>
+          <label class="text-sm text-gray-700">
+            Program Type
+            <select class="border rounded px-3 py-2 w-full" name="level" required>
+              <option value="">Select Type</option>
+              <option value="Master">Master</option>
+              <option value="PhD">PhD</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Mode
+            <select class="border rounded px-3 py-2 w-full" name="mode" required>
+              <option value="">Select Mode</option>
+              <option value="Coursework">Coursework</option>
+              <option value="Full-Research">Full-Research</option>
+              <option value="Mix-Mode">Mix-Mode</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Project Component
+            <select class="border rounded px-3 py-2 w-full" name="projectType" required>
+              <option value="">Select Option</option>
+              <option value="Project">Project</option>
+              <option value="Dissertation">Dissertation</option>
+              <option value="Thesis">Thesis</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Duration (years)
+            <input class="border rounded px-3 py-2 w-full" name="duration" type="number" min="1" step="1" placeholder="e.g. 3" required />
+          </label>
+          <div class="col-span-1 md:col-span-4 border rounded p-4 bg-gray-50 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-semibold text-gray-700">Courses for this Program</h3>
+              <span id="program-course-editing-label" class="hidden text-xs text-gray-500">Editing course entry…</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <label class="text-sm text-gray-700">
+                Code (e.g. MBA701)
+                <input class="border rounded px-3 py-2 w-full" id="program-course-code" />
+              </label>
+              <label class="text-sm text-gray-700 md:col-span-2">
+                Title
+                <input class="border rounded px-3 py-2 w-full" id="program-course-title" />
+              </label>
+              <label class="text-sm text-gray-700">
+                Credit Hours
+                <input class="border rounded px-3 py-2 w-full" id="program-course-credit" type="number" step="0.5" />
+              </label>
+              <div class="col-span-1 md:col-span-4 flex items-center gap-2">
+                <button type="button" id="program-course-add" class="bg-teal-600 text-white rounded px-4 py-2">Add Course</button>
+                <button type="button" id="program-course-cancel" class="hidden bg-gray-200 text-gray-700 rounded px-3 py-2">Cancel</button>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-sm border rounded bg-white">
+                <thead>
+                  <tr class="text-left border-b">
+                    <th class="py-2 px-2">#</th>
+                    <th class="py-2 px-2">Code</th>
+                    <th class="py-2 px-2">Title</th>
+                    <th class="py-2 px-2">Credit</th>
+                    <th class="py-2 px-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="program-course-drafts"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="col-span-1 md:col-span-4 flex items-center gap-2 mt-1">
+            <button id="program-submit" class="bg-blue-600 text-white rounded px-4 py-2">
+              Save Program
+            </button>
+            <button type="button" id="program-cancel-edit" class="hidden bg-gray-200 text-gray-700 rounded px-4 py-2">
+              Cancel Edit
+            </button>
+            <span id="program-editing-label" class="hidden text-sm text-gray-600">Editing existing program…</span>
+          </div>
+        </form>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold">Programs</h2>
+          <button id="refresh-programs" class="text-sm px-3 py-1 rounded bg-gray-100">Refresh</button>
+        </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm" id="tbl-programs">
+          <thead>
+            <tr>
+              <th class="py-2 pr-4 text-left border-b">#</th>
+                <th class="py-2 pr-4 text-left border-b">Program</th>
+                <th class="py-2 pr-4 text-left border-b">Type</th>
+                <th class="py-2 pr-4 text-left border-b">Mode</th>
+                <th class="py-2 pr-4 text-left border-b">Courses</th>
+                <th class="py-2 pr-4 text-left border-b">Project Component</th>
+                <th class="py-2 pr-4 text-left border-b">Duration (years)</th>
+                <th class="py-2 pr-4 text-left border-b">Actions</th>
+              </tr>
+          </thead>
+          <tbody id="rows-programs"></tbody>
+        </table>
+      </div>
+    </div>
+    </section>
+
+    <!-- RESULTS -->
+    <section id="panel-results" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold mb-3">Add Result</h2>
+        <form id="form-result" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <label class="text-sm text-gray-700">
+            Student
+            <select class="border rounded px-3 py-2 w-full" name="studentId" id="result-student" required>
+              <option value="">Select Student</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Course
+            <select class="border rounded px-3 py-2 w-full" name="courseId" id="result-course" required disabled>
+              <option value="">Select Course</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Semester (e.g. 2025-02)
+            <input class="border rounded px-3 py-2 w-full" name="semester" required />
+          </label>
+          <label class="text-sm text-gray-700">
+            Mark (0-100)
+            <input class="border rounded px-3 py-2 w-full" name="mark" type="number" step="0.01" required />
+          </label>
+          <div class="col-span-1 md:col-span-4 flex items-center gap-3">
+            <button class="bg-blue-600 text-white rounded px-4 py-2">Save Result</button>
+            <span id="result-preview" class="text-sm text-gray-600"></span>
+          </div>
+        </form>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold">All Results</h2>
+          <button id="refresh-results" class="text-sm px-3 py-1 rounded bg-gray-100">Refresh</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm" id="tbl-results">
+            <thead>
+              <tr>
+                <th class="py-2 pr-4 text-left border-b">#</th>
+                <th class="py-2 pr-4 text-left border-b">Student</th>
+                <th class="py-2 pr-4 text-left border-b">Course</th>
+                <th class="py-2 pr-4 text-left border-b">Credit</th>
+                <th class="py-2 pr-4 text-left border-b">Semester</th>
+                <th class="py-2 pr-4 text-left border-b">Mark</th>
+                <th class="py-2 pr-4 text-left border-b">Grade</th>
+                <th class="py-2 pr-4 text-left border-b">Point</th>
+              </tr>
+            </thead>
+            <tbody id="rows-results"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- FINANCE -->
+    <section id="panel-finance" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold mb-3">Agent Management</h2>
+        <form id="form-agent" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <label class="text-sm text-gray-700">
+            Agent Name
+            <input class="border rounded px-3 py-2 w-full" name="name" required />
+          </label>
+          <label class="text-sm text-gray-700">
+            Email
+            <input class="border rounded px-3 py-2 w-full" name="email" type="email" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Phone
+            <input class="border rounded px-3 py-2 w-full" name="phone" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Agreement Link
+            <input class="border rounded px-3 py-2 w-full" name="agreementLink" type="url" placeholder="https://example.com/agreement.pdf" />
+          </label>
+          <label class="text-sm text-gray-700 md:col-span-2">
+            Agreement Notes
+            <input class="border rounded px-3 py-2 w-full" name="agreement" />
+          </label>
+          <div class="col-span-1 md:col-span-4 flex items-center flex-wrap gap-3 mt-1">
+            <button id="agent-submit" class="bg-blue-600 text-white rounded px-4 py-2">Save Agent</button>
+            <button type="button" id="agent-cancel-edit" class="hidden bg-gray-200 text-gray-700 rounded px-4 py-2">Cancel Edit</button>
+            <span id="agent-editing-label" class="hidden text-sm text-gray-600">Editing existing agent...</span>
+          </div>
+        </form>
+        <div class="overflow-x-auto mt-4">
+          <table class="min-w-full text-sm" id="tbl-agents">
+            <thead>
+              <tr>
+                <th class="py-2 pr-4 text-left border-b">#</th>
+                <th class="py-2 pr-4 text-left border-b">Name</th>
+                <th class="py-2 pr-4 text-left border-b">Email</th>
+                <th class="py-2 pr-4 text-left border-b">Phone</th>
+                <th class="py-2 pr-4 text-left border-b">Agreement Link</th>
+                <th class="py-2 pr-4 text-left border-b">Notes</th>
+                <th class="py-2 pr-4 text-left border-b">Status</th>
+                <th class="py-2 pr-4 text-left border-b">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="rows-agents"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold mb-3">Fee Group Management</h2>
+        <p class="text-sm text-gray-600 mb-2">Fee groups tie a program and agent to a fee structure (registration, tuition, convocation).</p>
+        <form id="form-feegroup" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <label class="text-sm text-gray-700">
+            Fee Group Name
+            <input class="border rounded px-3 py-2 w-full" name="name" required />
+          </label>
+          <label class="text-sm text-gray-700">
+            Program
+            <select class="border rounded px-3 py-2 w-full" name="programId" id="fee-program" required>
+              <option value="">Select Program</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Agent
+            <select class="border rounded px-3 py-2 w-full" name="agentId" id="fee-agent" required>
+              <option value="">Select Agent</option>
+            </select>
+          </label>
+          <div></div>
+          <label class="text-sm text-gray-700">
+            Registration Fee
+            <input class="border rounded px-3 py-2 w-full" name="registrationFee" type="number" step="0.01" value="0" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Tuition Fee
+            <input class="border rounded px-3 py-2 w-full" name="tuitionFee" type="number" step="0.01" value="0" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Convocation Fee
+            <input class="border rounded px-3 py-2 w-full" name="convocationFee" type="number" step="0.01" value="0" />
+          </label>
+          <button class="col-span-1 md:col-span-4 bg-blue-600 text-white rounded px-4 py-2 mt-1">Save Fee Group</button>
+        </form>
+        <div class="overflow-x-auto mt-4">
+          <table class="min-w-full text-sm" id="tbl-feegroups">
+            <thead>
+              <tr>
+                <th class="py-2 pr-4 text-left border-b">#</th>
+                <th class="py-2 pr-4 text-left border-b">Group</th>
+                <th class="py-2 pr-4 text-left border-b">Program</th>
+                <th class="py-2 pr-4 text-left border-b">Agent</th>
+                <th class="py-2 pr-4 text-left border-b">Registration</th>
+                <th class="py-2 pr-4 text-left border-b">Tuition</th>
+                <th class="py-2 pr-4 text-left border-b">Convocation</th>
+                <th class="py-2 pr-4 text-left border-b">Total</th>
+              </tr>
+            </thead>
+            <tbody id="rows-feegroups"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- REPORTS -->
+    <section id="panel-reports" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold mb-3">View Student Results & GPA/CGPA</h2>
+        <div class="flex flex-col md:flex-row gap-3 items-start">
+          <select class="border rounded px-3 py-2" id="report-student">
+            <option value="">Select Student</option>
+          </select>
+          <button id="btn-show-report" class="bg-blue-600 text-white rounded px-4 py-2">Show</button>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <h3 class="font-semibold mb-2">Summary</h3>
+        <div id="summary-box" class="text-sm text-gray-700">Select a student to view summary.</div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <h3 class="font-semibold mb-2">Results by Semester</h3>
+        <div id="report-container" class="space-y-6"></div>
+      </div>
+    </section>
+
+    <!-- STUDENT FINANCE (per-student ledger) -->
+    <section id="panel-ledger" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded shadow space-y-4">
+        <div>
+          <h2 class="font-semibold mb-1">Finance Overview</h2>
+          <p class="text-sm text-gray-600">Monitor billed vs collected totals across students or drill into a specific program, agent, or student.</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <label class="text-sm text-gray-700">
+            Program
+            <select class="border rounded px-3 py-2 w-full" id="ledger-filter-program">
+              <option value="">All Programs</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Agent
+            <select class="border rounded px-3 py-2 w-full" id="ledger-filter-agent">
+              <option value="">All Agents</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Student
+            <select class="border rounded px-3 py-2 w-full" id="ledger-filter-student">
+              <option value="">All Students</option>
+            </select>
+          </label>
+          <div class="flex items-end">
+            <button type="button" id="ledger-filter-reset" class="w-full bg-gray-900 text-white rounded px-4 py-2">Reset Filters</button>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm" id="ledger-overview-cards">
+          <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
+            <p class="text-xs uppercase tracking-wide text-gray-500">Total Billed</p>
+            <p class="text-2xl font-semibold mt-1" id="ledger-card-billed">-</p>
+            <p class="text-xs text-gray-500 mt-1" id="ledger-card-billed-note">Awaiting data</p>
+          </div>
+          <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
+            <p class="text-xs uppercase tracking-wide text-gray-500">Collected</p>
+            <p class="text-2xl font-semibold mt-1 text-emerald-600" id="ledger-card-collected">-</p>
+            <p class="text-xs text-gray-500 mt-1" id="ledger-card-collected-note">Awaiting data</p>
+          </div>
+          <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
+            <p class="text-xs uppercase tracking-wide text-gray-500">Pending</p>
+            <p class="text-2xl font-semibold mt-1 text-amber-600" id="ledger-card-pending">-</p>
+            <p class="text-xs text-gray-500 mt-1" id="ledger-card-pending-note">Awaiting data</p>
+          </div>
+          <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
+            <p class="text-xs uppercase tracking-wide text-gray-500">Overdue</p>
+            <p class="text-2xl font-semibold mt-1 text-red-600" id="ledger-card-overdue">-</p>
+            <p class="text-xs text-gray-500 mt-1" id="ledger-card-overdue-note">Awaiting data</p>
+          </div>
+        </div>
+        <p class="text-xs text-gray-500" id="ledger-discount-summary">Discounts Granted: RM 0.00</p>
+        <div class="overflow-x-auto">
+        <table class="min-w-full text-sm" id="tbl-ledger-overview">
+          <thead>
+            <tr>
+              <th class="py-2 pr-4 text-left border-b">#</th>
+              <th class="py-2 pr-4 text-left border-b">Student</th>
+              <th class="py-2 pr-4 text-left border-b">Program</th>
+              <th class="py-2 pr-4 text-left border-b">Agent</th>
+              <th class="py-2 pr-4 text-left border-b">Invoices</th>
+              <th class="py-2 pr-4 text-left border-b">Billed</th>
+              <th class="py-2 pr-4 text-left border-b">Collected</th>
+              <th class="py-2 pr-4 text-left border-b">Discount</th>
+              <th class="py-2 pr-4 text-left border-b">Pending</th>
+              <th class="py-2 pr-4 text-left border-b">Overdue</th>
+              <th class="py-2 pr-4 text-left border-b">Status</th>
+            </tr>
+          </thead>
+            <tbody id="rows-ledger-overview"></tbody>
+          </table>
+        </div>
+        <p class="text-sm text-gray-500 hidden" id="ledger-overview-empty">No students match the selected filters.</p>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h2 class="font-semibold mb-1">Student Finance Ledger</h2>
+            <p class="text-sm text-gray-600">Select a student to view profile, invoices (charges), and apply payments/discounts.</p>
+          </div>
+          <label class="text-sm text-gray-700">
+            Student
+            <select class="border rounded px-3 py-2 w-full" id="ledger-student">
+              <option value="">Select Student</option>
+            </select>
+          </label>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <h3 class="font-semibold mb-2">Profile</h3>
+        <div id="ledger-profile" class="text-sm text-gray-700">
+          Select a student to view details.
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-2">
+          <div>
+            <h3 class="font-semibold">Invoices (Charges)</h3>
+            <p class="text-sm text-gray-600">Automatically created from fee group. You can add manual charges if needed.</p>
+          </div>
+          <button id="ledger-add-charge" class="text-sm px-3 py-2 rounded bg-gray-200">Add Manual Charge</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm" id="tbl-ledger-invoices">
+            <thead>
+              <tr>
+                <th class="py-2 pr-4 text-left border-b">#</th>
+                <th class="py-2 pr-4 text-left border-b">Fee</th>
+                <th class="py-2 pr-4 text-left border-b">Fee Group</th>
+                <th class="py-2 pr-4 text-left border-b">Amount</th>
+                <th class="py-2 pr-4 text-left border-b">Paid</th>
+                <th class="py-2 pr-4 text-left border-b">Balance</th>
+                <th class="py-2 pr-4 text-left border-b">Status</th>
+                <th class="py-2 pr-4 text-left border-b">Created</th>
+              </tr>
+            </thead>
+            <tbody id="rows-ledger-invoices"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-2">
+          <div>
+            <h3 class="font-semibold">Payments / Discounts</h3>
+            <p class="text-sm text-gray-600">Apply payments or discounts to specific invoices.</p>
+          </div>
+          <div class="text-sm text-gray-700" id="ledger-balance-summary"></div>
+        </div>
+        <form id="form-ledger-payment" class="grid grid-cols-1 md:grid-cols-4 gap-3 mb-3">
+          <label class="text-sm text-gray-700">
+            Invoice
+            <select class="border rounded px-3 py-2 w-full" name="invoiceId" id="ledger-invoice">
+              <option value="">Select Invoice</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Type
+            <select class="border rounded px-3 py-2 w-full" name="type">
+              <option value="credit">Credit (Payment)</option>
+              <option value="discount">Discount (Reduction)</option>
+              <option value="debit">Manual Charge</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Amount
+            <input class="border rounded px-3 py-2 w-full" name="amount" type="number" step="0.01" min="0" required />
+          </label>
+          <label class="text-sm text-gray-700">
+            Date
+            <input class="border rounded px-3 py-2 w-full" name="date" type="date" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Note
+            <input class="border rounded px-3 py-2 w-full" name="note" />
+          </label>
+          <div></div><div></div>
+          <div class="flex gap-2 col-span-1 md:col-span-4 items-center flex-wrap">
+            <button class="bg-blue-600 text-white rounded px-4 py-2 mt-1" id="ledger-payment-submit">Save Payment</button>
+            <button type="button" class="hidden bg-gray-500 text-white rounded px-4 py-2 mt-1" id="ledger-payment-cancel">Cancel Edit</button>
+            <span id="ledger-payment-editing-label" class="hidden text-sm text-gray-600 mt-2">Editing existing payment...</span>
+          </div>
+        </form>
+
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm" id="tbl-ledger-payments">
+            <thead>
+              <tr>
+                <th class="py-2 pr-4 text-left border-b">#</th>
+                <th class="py-2 pr-4 text-left border-b">Date</th>
+                <th class="py-2 pr-4 text-left border-b">Type</th>
+                <th class="py-2 pr-4 text-left border-b">Amount</th>
+                <th class="py-2 pr-4 text-left border-b">Applied To</th>
+                <th class="py-2 pr-4 text-left border-b">Note</th>
+                <th class="py-2 pr-4 text-left border-b">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="rows-ledger-payments"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- IMPORT / EXPORT -->
+    <section id="panel-import" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold mb-3">Export to Excel</h2>
+        <div class="flex flex-wrap gap-2">
+          <button id="export-students" class="bg-gray-800 text-white rounded px-4 py-2">Export Students</button>
+          <button id="export-programs" class="bg-gray-800 text-white rounded px-4 py-2">Export Programs</button>
+          <button id="export-courses" class="bg-gray-800 text-white rounded px-4 py-2">Export Courses</button>
+          <button id="export-results" class="bg-gray-800 text-white rounded px-4 py-2">Export Results</button>
+          <button id="export-agents" class="bg-gray-800 text-white rounded px-4 py-2">Export Agents</button>
+          <button id="export-feegroups" class="bg-gray-800 text-white rounded px-4 py-2">Export Fee Groups</button>
+          <button id="export-payments" class="bg-gray-800 text-white rounded px-4 py-2">Export Payments</button>
+          <button id="export-invoices" class="bg-gray-800 text-white rounded px-4 py-2">Export Invoices</button>
+          <button id="export-all-xlsx" class="bg-blue-600 text-white rounded px-4 py-2">Export ALL (one workbook)</button>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold mb-3">Import from Excel</h2>
+        <p class="text-sm text-gray-600 mb-2">
+          Supported sheets (case-insensitive):
+          <strong>Programs</strong>, <strong>Students</strong>, <strong>Courses</strong>, <strong>Results</strong>.
+        </p>
+        <ul class="text-sm text-gray-600 list-disc ml-5 mb-3">
+          <li><b>Programs</b>: type (Master/PhD), name, mode, projectType (Project/Dissertation/Thesis), duration (years)</li>
+          <li><b>Students</b>: studentId, name, email, phone, intake, program (program name), status</li>
+          <li><b>Courses</b>: code, title, credit hours, program (program name)</li>
+          <li><b>Results</b>: studentId or name, courseCode, semester, mark</li>
+          <li><b>Agents</b>: name, email, phone, agreementLink, agreement, status (Active/Terminated)</li>
+          <li><b>FeeGroups</b>: name, program (program name), agent (agent name), registrationFee, tuitionFee, convocationFee</li>
+          <li><b>Invoices</b>: studentId or name, feeGroup (name), feeType (registration/tuition/convocation/manual), amount, paid, status, createdAt</li>
+          <li><b>Payments</b>: studentId or name, feeGroup (fee group name), type (debit/credit/discount), amount, date, note</li>
+        </ul>
+        <input type="file" id="import-file" accept=".xlsx,.xls" class="mb-3" />
+        <div class="flex gap-2 items-center">
+          <button id="btn-import" class="bg-green-600 text-white rounded px-4 py-2">Import</button>
+          <span id="import-status" class="text-sm text-gray-600"></span>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold mb-3">Full Backup (ZIP)</h2>
+        <div class="flex flex-wrap gap-2 items-center">
+          <button id="btn-backup" class="bg-purple-600 text-white rounded px-4 py-2">Export Backup (.zip)</button>
+          <input type="file" id="restore-file" accept=".zip" />
+          <button id="btn-restore" class="bg-orange-600 text-white rounded px-4 py-2">Restore Backup</button>
+          <span id="restore-status" class="text-sm text-gray-600"></span>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script>
+    // ---------------------- DB (Dexie) ----------------------
+    const db = new Dexie('pgsm_db_stage3');
+
+    // v1/v2 from earlier stages
+    db.version(1).stores({
+      programs: '++id, name, level, mode, duration',
+      students: '++id, studentId, name, email, phone, intake, programId, status'
+    });
+    db.version(2).stores({
+      programs: '++id, name, level, mode, duration',
+      students: '++id, studentId, name, email, phone, intake, programId, status',
+      courses: '++id, code, title, credit, programId',
+      results: '++id, studentIdFk, courseIdFk, semester, mark, grade, point, credit'
+    });
+    db.version(3).stores({
+      programs: '++id, name, level, mode, duration',
+      students: '++id, studentId, name, email, phone, intake, programId, status',
+      courses: '++id, code, title, credit, programId',
+      results: '++id, studentIdFk, courseIdFk, semester, mark, grade, point, credit',
+      agents: '++id, name, email, phone',
+      feeGroups: '++id, name, programId, agentId',
+      payments: '++id, studentIdFk, feeGroupId, type, date'
+    });
+    db.version(4).stores({
+      programs: '++id, name, level, mode, duration',
+      students: '++id, studentId, name, email, phone, intake, programId, feeGroupId, status',
+      courses: '++id, code, title, credit, programId',
+      results: '++id, studentIdFk, courseIdFk, semester, mark, grade, point, credit',
+      agents: '++id, name, email, phone',
+      feeGroups: '++id, name, programId, agentId',
+      invoices: '++id, studentIdFk, feeGroupId, feeType, status, createdAt',
+      payments: '++id, studentIdFk, feeGroupId, invoiceIdFk, type, date'
+    });
+    db.version(5).stores({
+      programs: '++id, name, level, mode, duration',
+      students: '++id, studentId, name, email, phone, intake, programId, feeGroupId, paymentPlan, status',
+      courses: '++id, code, title, credit, programId',
+      results: '++id, studentIdFk, courseIdFk, semester, mark, grade, point, credit',
+      agents: '++id, name, email, phone',
+      feeGroups: '++id, name, programId, agentId',
+      invoices: '++id, studentIdFk, feeGroupId, feeType, status, createdAt',
+      payments: '++id, studentIdFk, feeGroupId, invoiceIdFk, type, date'
+    });
+    db.version(6).stores({
+      programs: '++id, name, level, mode, duration',
+      students: '++id, studentId, name, email, phone, intake, programId, feeGroupId, paymentPlan, registrationDate, status',
+      courses: '++id, code, title, credit, programId',
+      results: '++id, studentIdFk, courseIdFk, semester, mark, grade, point, credit',
+      agents: '++id, name, email, phone',
+      feeGroups: '++id, name, programId, agentId',
+      invoices: '++id, studentIdFk, feeGroupId, feeType, status, createdAt',
+      payments: '++id, studentIdFk, feeGroupId, invoiceIdFk, type, date'
+    });
+    db.version(7).stores({
+      programs: '++id, name, mode, duration',
+      students: '++id, studentId, name, email, phone, intake, programId, feeGroupId, paymentPlan, registrationDate, status',
+      courses: '++id, code, title, credit, programId',
+      results: '++id, studentIdFk, courseIdFk, semester, mark, grade, point, credit',
+      agents: '++id, name, email, phone',
+      feeGroups: '++id, name, programId, agentId',
+      invoices: '++id, studentIdFk, feeGroupId, feeType, status, createdAt',
+      payments: '++id, studentIdFk, feeGroupId, invoiceIdFk, type, date'
+    });
+    db.version(8).stores({
+      programs: '++id, name, mode, duration, projectType',
+      students: '++id, studentId, name, email, phone, intake, programId, feeGroupId, paymentPlan, registrationDate, status',
+      courses: '++id, code, title, credit',
+      results: '++id, studentIdFk, courseIdFk, semester, mark, grade, point, credit',
+      agents: '++id, name, email, phone',
+      feeGroups: '++id, name, programId, agentId',
+      invoices: '++id, studentIdFk, feeGroupId, feeType, status, createdAt',
+      payments: '++id, studentIdFk, feeGroupId, invoiceIdFk, type, date'
+    });
+    db.version(9).stores({
+      programs: '++id, name, mode, duration, projectType',
+      students: '++id, studentId, name, email, phone, intake, programId, feeGroupId, paymentPlan, registrationDate, status',
+      courses: '++id, code, title, credit, programId',
+      studentCourses: '++id, studentIdFk, courseIdFk',
+      results: '++id, studentIdFk, courseIdFk, semester, mark, grade, point, credit',
+      agents: '++id, name, email, phone',
+      feeGroups: '++id, name, programId, agentId',
+      invoices: '++id, studentIdFk, feeGroupId, feeType, status, createdAt',
+      payments: '++id, studentIdFk, feeGroupId, invoiceIdFk, type, date'
+    });
+    db.version(10).stores({
+      programs: '++id, name, mode, duration, projectType, level',
+      students: '++id, studentId, name, email, phone, intake, programId, feeGroupId, paymentPlan, registrationDate, status',
+      courses: '++id, code, title, credit, programId',
+      studentCourses: '++id, studentIdFk, courseIdFk',
+      results: '++id, studentIdFk, courseIdFk, semester, mark, grade, point, credit',
+      agents: '++id, name, email, phone',
+      feeGroups: '++id, name, programId, agentId',
+      invoices: '++id, studentIdFk, feeGroupId, feeType, status, createdAt',
+      payments: '++id, studentIdFk, feeGroupId, invoiceIdFk, type, date'
+    }).upgrade(tx => {
+      return tx.programs.toCollection().modify(p => {
+        if (!p.level){
+          p.level = 'Master';
+        }
+      });
+    });
+    db.version(11).stores({
+      programs: '++id, name, mode, duration, projectType, level',
+      students: '++id, studentId, name, email, phone, intake, programId, feeGroupId, paymentPlan, registrationDate, status',
+      courses: '++id, code, title, credit, programId',
+      studentCourses: '++id, studentIdFk, courseIdFk',
+      results: '++id, studentIdFk, courseIdFk, semester, mark, grade, point, credit',
+      agents: '++id, name, email, phone, status',
+      feeGroups: '++id, name, programId, agentId',
+      invoices: '++id, studentIdFk, feeGroupId, feeType, status, createdAt',
+      payments: '++id, studentIdFk, feeGroupId, invoiceIdFk, type, date'
+    }).upgrade(tx => {
+      return tx.agents.toCollection().modify(a => {
+        if (!a.status){
+          a.status = 'Active';
+        }
+        if (typeof a.agreementLink === 'undefined'){
+          a.agreementLink = '';
+        }
+        if (typeof a.terminatedAt === 'undefined'){
+          a.terminatedAt = '';
+        }
+        if (typeof a.terminatedReason === 'undefined'){
+          a.terminatedReason = '';
+        }
+      });
+    });
+
+    // ---------------------- Grade Scale ----------------------
+    function gradeFromMark(mark){
+      const m = Number(mark);
+      if (isNaN(m)) return {grade: '-', point: 0};
+      if (m >= 85) return {grade: m === 85 ? 'A' : 'A+', point: 4.00};
+      if (m >= 75) return {grade: 'A-', point: 3.67};
+      if (m >= 70) return {grade: 'B+', point: 3.33};
+      if (m >= 65) return {grade: 'B',  point: 3.00};
+      if (m >= 60) return {grade: 'B-', point: 2.67};
+      if (m >= 55) return {grade: 'C+', point: 2.33};
+      if (m >= 50) return {grade: 'C',  point: 2.00};
+      if (m >= 45) return {grade: 'D+', point: 1.67};
+      if (m >= 40) return {grade: 'D',  point: 1.33};
+      return {grade: 'F', point: 0.00};
+    }
+
+    const PROJECT_OPTIONS = ['Project','Dissertation','Thesis'];
+    function normalizeProjectType(value){
+      const raw = (value || '').toString().trim().toLowerCase();
+      const match = PROJECT_OPTIONS.find(opt => opt.toLowerCase() === raw);
+      return match || '';
+    }
+
+    async function syncStudentCourses(studentId, programId){
+      if (!studentId) return;
+      await db.studentCourses.where('studentIdFk').equals(studentId).delete();
+      if (!programId) return;
+      const courses = await db.courses.where('programId').equals(programId).toArray();
+      if (!courses.length) return;
+      const rows = courses.map(c => ({ studentIdFk: studentId, courseIdFk: c.id }));
+      await db.studentCourses.bulkAdd(rows);
+    }
+
+    async function assignCourseToStudents(courseId, programId){
+      if (!courseId || !programId) return;
+      const students = await db.students.where('programId').equals(programId).toArray();
+      if (!students.length) return;
+      const rows = students.map(s => ({ studentIdFk: s.id, courseIdFk: courseId }));
+      await db.studentCourses.bulkAdd(rows);
+    }
+
+    async function deleteCourseCascade(courseId){
+      await db.transaction('rw', db.courses, db.studentCourses, db.results, async () => {
+        await db.courses.delete(courseId);
+        await db.studentCourses.where('courseIdFk').equals(courseId).delete();
+        await db.results.where('courseIdFk').equals(courseId).delete();
+      });
+    }
+
+    async function deleteProgramCascade(programId){
+      const [courseList, studentList] = await Promise.all([
+        db.courses.where('programId').equals(programId).toArray(),
+        db.students.where('programId').equals(programId).toArray()
+      ]);
+      const courseIds = courseList.map(c => c.id);
+      const studentIds = studentList.map(s => s.id);
+      await db.transaction('rw', db.programs, db.courses, db.students, db.studentCourses, db.results, db.feeGroups, async () => {
+        await db.programs.delete(programId);
+        if (courseIds.length){
+          await db.courses.bulkDelete(courseIds);
+          await db.studentCourses.where('courseIdFk').anyOf(courseIds).delete();
+          await db.results.where('courseIdFk').anyOf(courseIds).delete();
+        }
+        if (studentIds.length){
+          await db.students.where('id').anyOf(studentIds).modify({ programId: null });
+          await db.studentCourses.where('studentIdFk').anyOf(studentIds).delete();
+        }
+        await db.feeGroups.where('programId').equals(programId).modify({ programId: null });
+      });
+    }
+
+    let studentCoursesSeeded = false;
+    async function ensureStudentCoursesSeeded(){
+      if (studentCoursesSeeded) return;
+      const [studentCount, linkCount] = await Promise.all([
+        db.students.count(),
+        db.studentCourses.count()
+      ]);
+      if (!studentCount || linkCount) {
+        studentCoursesSeeded = true;
+        return;
+      }
+      const students = await db.students.toArray();
+      for (const stu of students){
+        if (stu.programId){
+          await syncStudentCourses(stu.id, stu.programId);
+        }
+      }
+      studentCoursesSeeded = true;
+    }
+
+    async function populateResultCourses(studentId){
+      const rCourseSel = document.getElementById('result-course');
+      if (!rCourseSel) return;
+      rCourseSel.innerHTML = '<option value="">Select Course</option>';
+      rCourseSel.disabled = !studentId;
+      if (!studentId) return;
+      const links = await db.studentCourses.where('studentIdFk').equals(Number(studentId)).toArray();
+      if (!links.length) return;
+      const courseIds = Array.from(new Set(links.map(l => l.courseIdFk)));
+      const courses = await db.courses.bulkGet(courseIds);
+      const filtered = courses.filter(Boolean).sort((a,b) => (a.code || '').localeCompare(b.code || ''));
+      for (const c of filtered){
+        const opt = document.createElement('option');
+        opt.value = c.id;
+        opt.textContent = `${c.code || ''} — ${c.title || ''}`.trim();
+        rCourseSel.appendChild(opt);
+      }
+    }
+
+    // ---------------------- Tabs ----------------------
+    const panels = {
+      students: document.getElementById('panel-students'),
+      programs: document.getElementById('panel-programs'),
+      results:  document.getElementById('panel-results'),
+      reports:  document.getElementById('panel-reports'),
+      finance:  document.getElementById('panel-finance'),
+      ledger:   document.getElementById('panel-ledger'),
+      import:   document.getElementById('panel-import'),
+    };
+    document.querySelectorAll('.tab').forEach(btn => {
+      btn.addEventListener('click', () => {
+        document.querySelectorAll('.tab').forEach(b => {
+          b.classList.remove('bg-blue-600', 'text-white');
+          b.classList.add('bg-gray-200');
+        });
+        btn.classList.add('bg-blue-600', 'text-white');
+        btn.classList.remove('bg-gray-200');
+        const tab = btn.dataset.tab;
+        Object.keys(panels).forEach(k => panels[k].classList.toggle('hidden', k !== tab));
+      });
+    });
+
+    // ---------------------- Loaders ----------------------
+    async function loadProgramsIntoSelects(){
+      await ensureStudentCoursesSeeded();
+      const programs = await db.programs.toArray();
+      const pSel = document.getElementById('student-program');
+      const repSel = document.getElementById('report-student');
+      const rStuSel = document.getElementById('result-student');
+      const feeProgramSel = document.getElementById('fee-program');
+
+      // Programs into student & course forms
+      if (pSel){ pSel.innerHTML = '<option value="">Select Program</option>'; }
+      if (feeProgramSel){ feeProgramSel.innerHTML = '<option value="">Select Program</option>'; }
+      for (const p of programs){
+        if (pSel){
+          const opt1 = document.createElement('option');
+          opt1.value = p.id;
+          opt1.textContent = p.name;
+          pSel.appendChild(opt1);
+        }
+        if (feeProgramSel){
+          const opt3 = document.createElement('option');
+          opt3.value = p.id;
+          opt3.textContent = p.name;
+          feeProgramSel.appendChild(opt3);
+        }
+      }
+
+      // Students into results & reports selections
+      const students = await db.students.toArray();
+      if (rStuSel){ rStuSel.innerHTML = '<option value="">Select Student</option>'; }
+      if (repSel){ repSel.innerHTML = '<option value="">Select Student</option>'; }
+      const paymentStuSel = document.getElementById('payment-student');
+      const ledgerStuSel = document.getElementById('ledger-student');
+      if (paymentStuSel){ paymentStuSel.innerHTML = '<option value="">Select Student</option>'; }
+      if (ledgerStuSel){ ledgerStuSel.innerHTML = '<option value="">Select Student</option>'; }
+      for (const s of students){
+        if (rStuSel){
+          const o1 = document.createElement('option');
+          o1.value = s.id;
+          o1.textContent = s.name;
+          rStuSel.appendChild(o1);
+        }
+        if (repSel){
+          const o2 = document.createElement('option');
+          o2.value = s.id;
+          o2.textContent = s.name;
+          repSel.appendChild(o2);
+        }
+        if (paymentStuSel){
+          const o3 = document.createElement('option');
+          o3.value = s.id;
+          o3.textContent = s.name;
+          paymentStuSel.appendChild(o3);
+        }
+        if (ledgerStuSel){
+          const o4 = document.createElement('option');
+          o4.value = s.id;
+          o4.textContent = s.name;
+          ledgerStuSel.appendChild(o4);
+        }
+      }
+
+      await populateResultCourses(rStuSel?.value || '');
+    }
+
+    const resultStudentSelect = document.getElementById('result-student');
+    if (resultStudentSelect){
+      resultStudentSelect.addEventListener('change', (ev) => {
+        populateResultCourses(ev.target.value);
+      });
+    }
+
+    async function loadAgentsIntoSelects(){
+      const agents = await db.agents.toArray();
+      const activeAgents = agents.filter(a => (a.status || 'Active').toLowerCase() !== 'terminated');
+      const feeAgentSel = document.getElementById('fee-agent');
+      if (feeAgentSel){
+        feeAgentSel.innerHTML = '<option value="">Select Agent</option>';
+        for (const a of activeAgents){
+          const opt = document.createElement('option');
+          opt.value = a.id;
+          opt.textContent = a.name;
+          feeAgentSel.appendChild(opt);
+        }
+      }
+    }
+
+    async function terminateAgent(agentId, reason){
+      if (!agentId) return;
+      const trimmedReason = (reason || '').toString().trim();
+      const timestamp = new Date().toISOString();
+      await db.transaction('rw', db.agents, db.feeGroups, db.students, db.invoices, db.payments, async () => {
+        await db.agents.update(agentId, {
+          status: 'Terminated',
+          terminatedAt: timestamp,
+          terminatedReason: trimmedReason
+        });
+        const linkedFeeGroups = await db.feeGroups.where('agentId').equals(agentId).toArray();
+        if (!linkedFeeGroups.length) return;
+        const fgIds = linkedFeeGroups.map(fg => fg.id);
+        await db.feeGroups.bulkDelete(fgIds);
+        await db.students.where('feeGroupId').anyOf(fgIds).modify({ feeGroupId: null });
+        await db.invoices.where('feeGroupId').anyOf(fgIds).modify({ feeGroupId: null });
+        await db.payments.where('feeGroupId').anyOf(fgIds).modify({ feeGroupId: null });
+      });
+    }
+
+    async function loadFeeGroupsIntoSelects(){
+      const [feeGroups, programs] = await Promise.all([
+        db.feeGroups.toArray(),
+        db.programs.toArray()
+      ]);
+      const pmap = Object.fromEntries(programs.map(p=>[p.id,p.name]));
+      const paymentFeeSel = document.getElementById('payment-feegroup');
+      const stuFeeSel = document.getElementById('student-feegroup');
+      if (paymentFeeSel){
+        paymentFeeSel.innerHTML = '<option value="">Select Fee Group</option>';
+        for (const fg of feeGroups){
+          const opt = document.createElement('option');
+          opt.value = fg.id;
+          opt.textContent = fg.name;
+          paymentFeeSel.appendChild(opt);
+        }
+      }
+      if (stuFeeSel){
+        stuFeeSel.innerHTML = '<option value="">Select Fee Group</option>';
+        for (const fg of feeGroups){
+          const opt = document.createElement('option');
+          opt.value = fg.id;
+          const pname = pmap[fg.programId] ? ` (${pmap[fg.programId]})` : '';
+          opt.textContent = `${fg.name}${pname}`;
+          stuFeeSel.appendChild(opt);
+        }
+      }
+    }
+
+    async function renderPrograms(){
+      const tbody = document.getElementById('rows-programs');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      const [items, courses] = await Promise.all([
+        db.programs.toArray(),
+        db.courses.toArray()
+      ]);
+      const courseCount = courses.reduce((acc, c) => {
+        if (!c.programId) return acc;
+        acc[c.programId] = (acc[c.programId] || 0) + 1;
+        return acc;
+      }, {});
+      const formatDuration = (raw) => {
+        if (raw === undefined || raw === null || raw === '') return '';
+        const num = Number(raw);
+        if (!Number.isFinite(num)) return raw;
+        return `${num} year${num === 1 ? '' : 's'}`;
+      };
+      items.forEach((p, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="py-2 pr-4">${i+1}</td>
+          <td class="py-2 pr-4">${p.name || ''}</td>
+          <td class="py-2 pr-4">${p.level || '-'}</td>
+          <td class="py-2 pr-4">${p.mode || ''}</td>
+          <td class="py-2 pr-4">${courseCount[p.id] || 0}</td>
+          <td class="py-2 pr-4">${p.projectType || '-'}</td>
+          <td class="py-2 pr-4">${formatDuration(p.duration)}</td>
+          <td class="py-2 pr-4">
+            <button class="text-blue-600 underline" data-action="edit-program" data-id="${p.id}">Edit</button>
+            <button class="text-red-600 underline ml-2" data-action="delete-program" data-id="${p.id}">Delete</button>
+            <button class="text-gray-700 underline ml-2" data-action="toggle-courses" data-id="${p.id}">Courses</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+        const detailTr = document.createElement('tr');
+        detailTr.classList.add('hidden');
+        detailTr.dataset.detailFor = p.id;
+        detailTr.innerHTML = `
+          <td colspan="8" class="bg-gray-50 px-4 py-3">
+            <div class="text-sm text-gray-600 mb-2">Courses for ${p.name || ''}</div>
+            <div data-courses-list="${p.id}" class="text-sm text-gray-700">No courses loaded.</div>
+          </td>
+        `;
+        tbody.appendChild(detailTr);
+      });
+      await loadProgramsIntoSelects();
+    }
+
+    async function renderStudents(){
+      const tbody = document.getElementById('rows-students');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      const programs = await db.programs.toArray();
+      const pmap = Object.fromEntries(programs.map(p => [p.id, p.name]));
+      // FIX: use orderBy('id').reverse() instead of table.reverse()
+      const items = await db.students.orderBy('id').reverse().toArray();
+      items.forEach((s, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="py-2 pr-4">${i+1}</td>
+          <td class="py-2 pr-4">${s.studentId || '-'}</td>
+          <td class="py-2 pr-4">${s.name || ''}</td>
+          <td class="py-2 pr-4">${pmap[s.programId] || '-'}</td>
+          <td class="py-2 pr-4">${s.intake || '-'}</td>
+          <td class="py-2 pr-4">${s.status || '-'}</td>
+          <td class="py-2 pr-4">
+            <button class="text-blue-600 underline" data-action="edit-student" data-id="${s.id}">Edit</button>
+            <button class="text-red-600 underline ml-2" data-action="delete-student" data-id="${s.id}">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      await loadProgramsIntoSelects();
+    }
+
+    async function renderCourses(){
+      const tbody = document.getElementById('rows-courses');
+      if (!tbody){
+        await loadProgramsIntoSelects();
+        return;
+      }
+      tbody.innerHTML = '';
+      const [items, programs] = await Promise.all([
+        db.courses.toArray(),
+        db.programs.toArray()
+      ]);
+      const pmap = Object.fromEntries(programs.map(p => [p.id, p.name]));
+      items.forEach((c, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="py-2 pr-4">${i+1}</td>
+          <td class="py-2 pr-4">${c.code || ''}</td>
+          <td class="py-2 pr-4">${c.title || ''}</td>
+          <td class="py-2 pr-4">${c.credit ?? ''}</td>
+          <td class="py-2 pr-4">${pmap[c.programId] || '-'}</td>
+          <td class="py-2 pr-4">
+            <button class="text-blue-600 underline" data-action="edit-course" data-id="${c.id}">Edit</button>
+            <button class="text-red-600 underline ml-2" data-action="delete-course" data-id="${c.id}">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      await loadProgramsIntoSelects();
+    }
+
+    async function renderResults(){
+      const tbody = document.getElementById('rows-results');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      const [students, courses] = await Promise.all([
+        db.students.toArray(), db.courses.toArray()
+      ]);
+      const smap = Object.fromEntries(students.map(s => [s.id, s.name]));
+      const cmap = Object.fromEntries(courses.map(c => [c.id, `${c.code} — ${c.title}`]));
+      const crmap = Object.fromEntries(courses.map(c => [c.id, c.credit]));
+
+      // FIX: use orderBy('id').reverse() instead of table.reverse()
+      const items = await db.results.orderBy('id').reverse().toArray();
+      items.forEach((r, i) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="py-2 pr-4">${i+1}</td>
+          <td class="py-2 pr-4">${smap[r.studentIdFk] || '-'}</td>
+          <td class="py-2 pr-4">${cmap[r.courseIdFk] || '-'}</td>
+          <td class="py-2 pr-4">${crmap[r.courseIdFk] ?? '-'}</td>
+          <td class="py-2 pr-4">${r.semester || '-'}</td>
+          <td class="py-2 pr-4">${r.mark ?? '-'}</td>
+          <td class="py-2 pr-4">${r.grade || '-'}</td>
+          <td class="py-2 pr-4">${(r.point ?? 0).toFixed?.(2) ?? r.point}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    async function renderAgents(){
+      const tbody = document.getElementById('rows-agents');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      const agents = await db.agents.toArray();
+      agents.forEach((a, i) => {
+        const status = (a.status || 'Active').toString();
+        const isTerminated = status.toLowerCase() === 'terminated';
+        const rawLink = (a.agreementLink || '').trim();
+        const prefixedLink = rawLink && !/^https?:\/\//i.test(rawLink) ? `https://${rawLink}` : rawLink;
+        const safeLink = prefixedLink ? prefixedLink.replace(/"/g, '&quot;') : '';
+        const linkCell = safeLink
+          ? `<a href="${safeLink}" target="_blank" rel="noopener" class="text-blue-600 underline break-all">Open</a>`
+          : '-';
+        const statusBadge = isTerminated
+          ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Terminated</span>'
+          : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Active</span>';
+        const tr = document.createElement('tr');
+        tr.className = isTerminated ? 'text-gray-500' : '';
+        tr.innerHTML = `
+          <td class="py-2 pr-4">${i+1}</td>
+          <td class="py-2 pr-4">${a.name || ''}</td>
+          <td class="py-2 pr-4">${a.email || ''}</td>
+          <td class="py-2 pr-4">${a.phone || ''}</td>
+          <td class="py-2 pr-4">${linkCell}</td>
+          <td class="py-2 pr-4">${a.agreement || ''}</td>
+          <td class="py-2 pr-4">${statusBadge}</td>
+          <td class="py-2 pr-4 whitespace-nowrap">
+            <button class="text-blue-600 underline" data-action="edit-agent" data-id="${a.id}">Edit</button>
+            ${isTerminated ? '' : `<button class="text-red-600 underline ml-2" data-action="terminate-agent" data-id="${a.id}">Terminate</button>`}
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+      await loadAgentsIntoSelects();
+    }
+
+    async function renderFeeGroups(){
+      const tbody = document.getElementById('rows-feegroups');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      const [feeGroups, programs, agents] = await Promise.all([
+        db.feeGroups.toArray(), db.programs.toArray(), db.agents.toArray()
+      ]);
+      const pmap = Object.fromEntries(programs.map(p => [p.id, p.name]));
+      const amap = Object.fromEntries(agents.map(a => [a.id, a.name]));
+      feeGroups.forEach((fg, i) => {
+        const reg = Number(fg.registrationFee) || 0;
+        const tui = Number(fg.tuitionFee) || 0;
+        const conv = Number(fg.convocationFee) || 0;
+        const total = reg + tui + conv;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="py-2 pr-4">${i+1}</td>
+          <td class="py-2 pr-4">${fg.name || ''}</td>
+          <td class="py-2 pr-4">${pmap[fg.programId] || '-'}</td>
+          <td class="py-2 pr-4">${amap[fg.agentId] || '-'}</td>
+          <td class="py-2 pr-4">${reg.toFixed(2)}</td>
+          <td class="py-2 pr-4">${tui.toFixed(2)}</td>
+          <td class="py-2 pr-4">${conv.toFixed(2)}</td>
+          <td class="py-2 pr-4 font-semibold">${total.toFixed(2)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      await loadFeeGroupsIntoSelects();
+      await loadAgentsIntoSelects();
+    }
+
+    async function renderPayments(){
+      const tbody = document.getElementById('rows-payments');
+      if (!tbody) return;
+      tbody.innerHTML = '';
+      const [allPayments, students, feeGroups] = await Promise.all([
+        db.payments.orderBy('id').reverse().toArray(),
+        db.students.toArray(),
+        db.feeGroups.toArray()
+      ]);
+      const payments = allPayments.filter(p => !p.deleted);
+      const smap = Object.fromEntries(students.map(s => [s.id, s.name]));
+      const fgmap = Object.fromEntries(feeGroups.map(fg => [fg.id, fg.name]));
+      const balanceMap = {};
+
+      payments.forEach((p, i) => {
+        const amt = Number(p.amount) || 0;
+        const typeRaw = (p.type || 'debit').toString().toLowerCase();
+        const signed = typeRaw === 'debit' ? amt : -amt;
+        balanceMap[p.studentIdFk] = (balanceMap[p.studentIdFk] || 0) + signed;
+        const label = typeRaw ? typeRaw.charAt(0).toUpperCase() + typeRaw.slice(1) : '-';
+        const noteText = [p.note || '', p.lastChangeReason ? `Reason: ${p.lastChangeReason}` : ''].filter(Boolean).join(' | ');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="py-2 pr-4">${i+1}</td>
+          <td class="py-2 pr-4">${p.date || '-'}</td>
+          <td class="py-2 pr-4">${smap[p.studentIdFk] || '-'}</td>
+          <td class="py-2 pr-4">${p.feeGroupId ? (fgmap[p.feeGroupId] || '-') : '-'}</td>
+          <td class="py-2 pr-4">${label}</td>
+          <td class="py-2 pr-4">${signed >= 0 ? '+' : '-'}${Math.abs(amt).toFixed(2)}</td>
+          <td class="py-2 pr-4">${noteText}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+
+      const balancesEl = document.getElementById('payment-balances');
+      if (balancesEl){
+        const entries = Object.entries(balanceMap).map(([sid, bal]) => ({
+          name: smap[sid] || 'Unknown',
+          balance: bal
+        })).sort((a,b)=>a.name.localeCompare(b.name));
+        balancesEl.textContent = entries.length
+          ? 'Balances: ' + entries.map(e => `${e.name}: ${e.balance.toFixed(2)}`).join('; ')
+          : 'Balances: -';
+      }
+      await renderLedgerOverview();
+    }
+
+    const currencyFormatter = new Intl.NumberFormat('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
+    const LEDGER_OVERVIEW_GRACE_DAYS = 30;
+
+    function formatMoney(value){
+      return currencyFormatter.format(Number(value) || 0);
+    }
+
+    function calculateInvoiceBalance(invoice){
+      const amount = Number(invoice?.amount) || 0;
+      const paid = Number(invoice?.paid) || 0;
+      return Math.max(0, amount - paid);
+    }
+
+    function isInvoiceOverdue(invoice){
+      if (!invoice) return false;
+      const created = invoice.createdAt ? new Date(invoice.createdAt) : null;
+      if (!created || isNaN(created.getTime())) return false;
+      const due = new Date(created);
+      due.setDate(due.getDate() + LEDGER_OVERVIEW_GRACE_DAYS);
+      return due < new Date() && calculateInvoiceBalance(invoice) > 0;
+    }
+
+    function rebuildLedgerFilter(select, options, placeholder, previousValue){
+      if (!select) return '';
+      const frag = document.createDocumentFragment();
+      const defaultOpt = document.createElement('option');
+      defaultOpt.value = '';
+      defaultOpt.textContent = placeholder;
+      frag.appendChild(defaultOpt);
+      let keepPrev = false;
+      options.forEach(opt => {
+        const optionEl = document.createElement('option');
+        optionEl.value = String(opt.value);
+        optionEl.textContent = opt.label;
+        if (optionEl.value === previousValue) keepPrev = true;
+        frag.appendChild(optionEl);
+      });
+      select.innerHTML = '';
+      select.appendChild(frag);
+      const nextValue = keepPrev ? previousValue : '';
+      select.value = nextValue;
+      return select.value;
+    }
+
+    async function renderLedgerOverview(){
+      const programSelect = document.getElementById('ledger-filter-program');
+      const agentSelect = document.getElementById('ledger-filter-agent');
+      const studentSelect = document.getElementById('ledger-filter-student');
+      const tableBody = document.getElementById('rows-ledger-overview');
+      const emptyEl = document.getElementById('ledger-overview-empty');
+      if (!programSelect || !agentSelect || !studentSelect || !tableBody || !emptyEl) return;
+
+      const [
+        students,
+        programs,
+        agents,
+        feeGroups,
+        invoices,
+        rawPayments
+      ] = await Promise.all([
+        db.students.toArray(),
+        db.programs.toArray(),
+        db.agents.toArray(),
+        db.feeGroups.toArray(),
+        db.invoices.toArray(),
+        db.payments.toArray()
+      ]);
+
+      const payments = rawPayments.filter(p => !p.deleted);
+      const discountByStudent = new Map();
+      const programMap = new Map(programs.map(p => [p.id, p]));
+      const agentMap = new Map(agents.map(a => [a.id, a]));
+      const feeGroupMap = new Map(feeGroups.map(fg => [fg.id, fg]));
+
+      const programOptions = programs
+        .map(p => ({ value: p.id, label: p.name || `Program #${p.id}` }))
+        .sort((a,b)=>a.label.localeCompare(b.label));
+      const agentOptions = agents
+        .map(a => ({ value: a.id, label: a.name || `Agent #${a.id}` }))
+        .sort((a,b)=>a.label.localeCompare(b.label));
+
+      const prevProgram = programSelect.value;
+      const prevAgent = agentSelect.value;
+      const prevStudent = studentSelect.value;
+
+      const currentProgram = rebuildLedgerFilter(programSelect, programOptions, 'All Programs', prevProgram);
+      const currentAgent = rebuildLedgerFilter(agentSelect, agentOptions, 'All Agents', prevAgent);
+
+      const studentOptionsSource = students
+        .filter(s => {
+          const matchesProgram = !currentProgram || String(s.programId || '') === currentProgram;
+          const fg = s.feeGroupId ? feeGroupMap.get(s.feeGroupId) : null;
+          const agentId = fg?.agentId ? String(fg.agentId) : '';
+          const matchesAgent = !currentAgent || agentId === currentAgent;
+          return matchesProgram && matchesAgent;
+        })
+        .map(s => ({ value: s.id, label: s.name || `Student #${s.id}` }))
+        .sort((a,b)=>a.label.localeCompare(b.label));
+
+      const currentStudent = rebuildLedgerFilter(studentSelect, studentOptionsSource, 'All Students', prevStudent);
+
+      const invoiceByStudent = new Map();
+      invoices.forEach(inv => {
+        if (!invoiceByStudent.has(inv.studentIdFk)){
+          invoiceByStudent.set(inv.studentIdFk, []);
+        }
+        invoiceByStudent.get(inv.studentIdFk).push(inv);
+      });
+
+      const collectedByStudent = new Map();
+      let totalDiscountAmount = 0;
+      payments.forEach(p => {
+        const type = (p.type || '').toString().toLowerCase();
+        if (type === 'debit') return;
+        const amt = Number(p.amount) || 0;
+        if (type === 'discount'){
+          const prev = discountByStudent.get(p.studentIdFk) || 0;
+          discountByStudent.set(p.studentIdFk, prev + amt);
+          totalDiscountAmount += amt;
+          return;
+        }
+        const prev = collectedByStudent.get(p.studentIdFk) || 0;
+        collectedByStudent.set(p.studentIdFk, prev + amt);
+      });
+
+      const filters = {
+        program: currentProgram,
+        agent: currentAgent,
+        student: currentStudent
+      };
+
+      const filteredStudents = students.filter(student => {
+        if (filters.program && String(student.programId || '') !== filters.program) return false;
+        const fg = student.feeGroupId ? feeGroupMap.get(student.feeGroupId) : null;
+        const agentId = fg?.agentId ? String(fg.agentId) : '';
+        if (filters.agent && agentId !== filters.agent) return false;
+        if (filters.student && String(student.id) !== filters.student) return false;
+        return true;
+      });
+
+      const rows = [];
+      filteredStudents.forEach((student) => {
+        const invs = invoiceByStudent.get(student.id) || [];
+        const billed = invs.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+        const pending = invs.reduce((sum, inv) => sum + calculateInvoiceBalance(inv), 0);
+        const overdue = invs.reduce((sum, inv) => sum + (isInvoiceOverdue(inv) ? calculateInvoiceBalance(inv) : 0), 0);
+        const collected = collectedByStudent.get(student.id) || 0;
+        const fg = student.feeGroupId ? feeGroupMap.get(student.feeGroupId) : null;
+        const agentName = fg ? (agentMap.get(fg.agentId)?.name || '-') : '-';
+        const programName = student.programId ? (programMap.get(student.programId)?.name || '-') : '-';
+        const status = pending <= 0 ? 'Paid' : (pending < billed ? 'Partial' : 'Open');
+        rows.push({
+          studentName: student.name || `Student #${student.id}`,
+          programName,
+          agentName,
+          invoicesCount: invs.length,
+          billed,
+          collected,
+          discount: discountByStudent.get(student.id) || 0,
+          pending,
+          overdue,
+          status
+        });
+      });
+
+      tableBody.innerHTML = '';
+      if (!rows.length){
+        emptyEl.classList.remove('hidden');
+      } else {
+        emptyEl.classList.add('hidden');
+        rows.sort((a,b)=>a.studentName.localeCompare(b.studentName)).forEach((row, index) => {
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="py-2 pr-4">${index + 1}</td>
+            <td class="py-2 pr-4">${row.studentName}</td>
+            <td class="py-2 pr-4">${row.programName || '-'}</td>
+            <td class="py-2 pr-4">${row.agentName || '-'}</td>
+            <td class="py-2 pr-4">${row.invoicesCount}</td>
+            <td class="py-2 pr-4">${formatMoney(row.billed)}</td>
+            <td class="py-2 pr-4">${formatMoney(row.collected)}</td>
+            <td class="py-2 pr-4 text-emerald-600">${row.discount ? `(${formatMoney(row.discount)})` : '-'}</td>
+            <td class="py-2 pr-4">${formatMoney(row.pending)}</td>
+            <td class="py-2 pr-4">${formatMoney(row.overdue)}</td>
+            <td class="py-2 pr-4">${row.status}</td>
+          `;
+          tableBody.appendChild(tr);
+        });
+      }
+
+      const totals = rows.reduce((acc, row) => {
+        acc.billed += row.billed;
+        acc.collected += row.collected;
+        acc.discount += row.discount;
+        acc.pending += row.pending;
+        acc.overdue += row.overdue;
+        return acc;
+      }, { billed: 0, collected: 0, discount: 0, pending: 0, overdue: 0 });
+
+      const countNote = rows.length ? `${rows.length} student${rows.length === 1 ? '' : 's'}` : 'No students';
+      const billedEl = document.getElementById('ledger-card-billed');
+      const billedNote = document.getElementById('ledger-card-billed-note');
+      const collectedEl = document.getElementById('ledger-card-collected');
+      const collectedNote = document.getElementById('ledger-card-collected-note');
+      const pendingEl = document.getElementById('ledger-card-pending');
+      const pendingNote = document.getElementById('ledger-card-pending-note');
+      const overdueEl = document.getElementById('ledger-card-overdue');
+      const overdueNote = document.getElementById('ledger-card-overdue-note');
+      if (billedEl) billedEl.textContent = `RM ${formatMoney(totals.billed)}`;
+      if (billedNote) billedNote.textContent = countNote;
+      if (collectedEl) collectedEl.textContent = `RM ${formatMoney(totals.collected)}`;
+      if (collectedNote) collectedNote.textContent = countNote;
+      if (pendingEl) pendingEl.textContent = `RM ${formatMoney(totals.pending)}`;
+      if (pendingNote) pendingNote.textContent = rows.length ? 'Outstanding balance' : 'Nothing pending';
+      if (overdueEl) overdueEl.textContent = `RM ${formatMoney(totals.overdue)}`;
+      if (overdueNote) overdueNote.textContent = rows.length ? 'Older than 30 days' : 'No invoices';
+      const discountSummary = document.getElementById('ledger-discount-summary');
+      if (discountSummary){
+        discountSummary.textContent = rows.length
+          ? `Discounts Granted: RM ${formatMoney(totalDiscountAmount)}`
+          : 'Discounts Granted: RM 0.00';
+      }
+    }
+
+    // ---------------------- Finance Helpers ----------------------
+    async function ensureInvoicesForFeeGroup(studentId, feeGroupId){
+      if (!studentId || !feeGroupId) return;
+      const student = await db.students.get(Number(studentId));
+      const paymentPlan = student?.paymentPlan || 'lump';
+      const registrationDate = student?.registrationDate || new Date().toISOString().slice(0,10);
+      const startDate = new Date(registrationDate || new Date());
+      if (isNaN(startDate.getTime())){
+        startDate.setTime(Date.now());
+      }
+      startDate.setDate(1); // use early (1st) of the month
+      const feeGroup = await db.feeGroups.get(Number(feeGroupId));
+      if (!feeGroup) return;
+      const existing = await db.invoices.where({studentIdFk:Number(studentId), feeGroupId:Number(feeGroupId)}).toArray();
+      const has = (type)=>existing.some(inv => inv.feeType === type);
+      const existingTuition = existing.filter(inv => (inv.feeType||'').toString().startsWith('tuition'));
+      const today = new Date().toISOString().slice(0,10);
+      const baseItems = [
+        {type:'registration', amount:Number(feeGroup.registrationFee)||0},
+        {type:'convocation', amount:Number(feeGroup.convocationFee)||0},
+      ];
+      // Add non-tuition items
+      for (const it of baseItems){
+        if (it.amount <= 0) continue;
+        if (has(it.type)) continue;
+        await db.invoices.add({
+          studentIdFk: Number(studentId),
+          feeGroupId: Number(feeGroupId),
+          feeType: it.type,
+          amount: it.amount,
+          paid: 0,
+          status: 'open',
+          createdAt: startDate.toISOString().slice(0,10)
+        });
+      }
+      // Tuition handling based on payment plan
+      const tuitionAmt = Number(feeGroup.tuitionFee)||0;
+      if (tuitionAmt <= 0) return;
+
+      const desiredParts = paymentPlan === 'installment12' ? 12 : (paymentPlan === 'installment6' ? 6 : 1);
+      const existingParts = existingTuition.length || 0;
+      const existingHasPayments = existingTuition.length
+        ? (await db.payments.where('invoiceIdFk').anyOf(existingTuition.map(t=>t.id)).toArray()).some(p => !p.deleted)
+        : false;
+
+      // If tuition invoices already match desired and exist, keep them
+      if (existingParts === desiredParts && existingParts > 0) return;
+
+      // If mismatch but payments exist, avoid destructive changes
+      if (existingHasPayments) return;
+
+      // Remove old tuition invoices when we can
+      if (existingTuition.length){
+        await db.invoices.bulkDelete(existingTuition.map(t=>t.id));
+      }
+
+      const addMonths = (d, n)=>{
+        const dt = new Date(d.getTime());
+        dt.setMonth(dt.getMonth() + n);
+        dt.setDate(1); // early in the month
+        return dt.toISOString().slice(0,10);
+      };
+
+      if (desiredParts === 1){
+        await db.invoices.add({
+          studentIdFk: Number(studentId),
+          feeGroupId: Number(feeGroupId),
+          feeType: 'tuition',
+          amount: tuitionAmt,
+          paid: 0,
+          status: 'open',
+          createdAt: startDate.toISOString().slice(0,10)
+        });
+      } else {
+        const parts = desiredParts;
+        const slice = Math.round((tuitionAmt / parts) * 100) / 100;
+        let remaining = tuitionAmt;
+        for (let i=1;i<=parts;i++){
+          const amount = i === parts ? Math.round(remaining * 100) / 100 : slice;
+          remaining = Math.round((remaining - amount) * 100) / 100;
+          await db.invoices.add({
+            studentIdFk: Number(studentId),
+            feeGroupId: Number(feeGroupId),
+            feeType: `tuition-${i}/${parts}`,
+            amount: amount,
+            paid: 0,
+            status: 'open',
+            createdAt: addMonths(startDate, i-1)
+          });
+        }
+      }
+    }
+
+    function statusFromPaid(amount, paid){
+      const bal = (Number(amount)||0) - (Number(paid)||0);
+      if (bal <= 0) return 'paid';
+      if (bal < amount) return 'partial';
+      return 'open';
+    }
+
+    async function recomputeInvoicesForStudent(studentId){
+      const invoices = await db.invoices.where('studentIdFk').equals(Number(studentId)).toArray();
+      const payments = (await db.payments.where('studentIdFk').equals(Number(studentId)).toArray()).filter(p => !p.deleted);
+      const paidMap = {};
+      for (const p of payments){
+        if (!p.invoiceIdFk) continue;
+        if (p.type === 'debit') continue; // debit is a charge creation, not a payment
+        paidMap[p.invoiceIdFk] = (paidMap[p.invoiceIdFk] || 0) + (Number(p.amount)||0);
+      }
+      for (const inv of invoices){
+        const paid = paidMap[inv.id] || 0;
+        const status = statusFromPaid(Number(inv.amount)||0, paid);
+        await db.invoices.update(inv.id, { paid, status });
+      }
+    }
+
+    async function updateLedgerPayment({paymentId, studentId, invoiceId, type, amount, note, date, reason}){
+      const payment = await db.payments.get(Number(paymentId));
+      if (!payment) throw new Error('Payment not found.');
+      if (payment.studentIdFk !== Number(studentId)) throw new Error('Payment does not belong to this student.');
+
+      const cleanReason = (reason || '').toString().trim();
+      const cleanNote = (note || '').toString().trim();
+      let targetInvoiceId = invoiceId ? Number(invoiceId) : (payment.invoiceIdFk || null);
+
+      if ((type === 'credit' || type === 'discount') && !targetInvoiceId){
+        throw new Error('Select an invoice to apply the payment/discount.');
+      }
+
+      // For manual charges (debit), also keep the backing invoice in sync
+      if (type === 'debit' && payment.invoiceIdFk){
+        await db.invoices.update(payment.invoiceIdFk, {
+          amount: amount,
+          createdAt: date || payment.date || new Date().toISOString().slice(0,10)
+        });
+        targetInvoiceId = payment.invoiceIdFk;
+      }
+
+      await db.payments.update(paymentId, {
+        invoiceIdFk: targetInvoiceId,
+        type,
+        amount,
+        note: cleanNote,
+        date: date || payment.date,
+        lastChangeReason: cleanReason,
+        deleted: false
+      });
+
+      await recomputeInvoicesForStudent(studentId);
+    }
+
+    async function deleteLedgerPayment(paymentId){
+      const payment = await db.payments.get(Number(paymentId));
+      if (!payment) return;
+      const reason = prompt('Enter a reason for removing this payment:');
+      if (!reason || !reason.toString().trim()) return alert('Reason is required to remove a payment.');
+      const trimmed = reason.toString().trim();
+
+      // If removing a charge (debit) ensure no other payments are tied to that invoice
+      if (payment.type === 'debit' && payment.invoiceIdFk){
+        const siblingPayments = (await db.payments.where({invoiceIdFk: payment.invoiceIdFk}).toArray()).filter(p => p.id !== payment.id && !p.deleted);
+        if (siblingPayments.length){
+          return alert('Remove payments applied to this charge before deleting it.');
+        }
+        await db.invoices.delete(payment.invoiceIdFk);
+      }
+
+      await db.payments.update(paymentId, { deleted: true, lastChangeReason: trimmed });
+      await recomputeInvoicesForStudent(payment.studentIdFk);
+    }
+
+    async function applyPaymentToInvoice({studentId, invoiceId, type, amount, note, date}){
+      const invoice = await db.invoices.get(Number(invoiceId));
+      if (!invoice || invoice.studentIdFk !== Number(studentId)) throw new Error('Invalid invoice selection');
+      const amt = Number(amount) || 0;
+      if (type === 'debit'){
+        // Treat as manual charge by creating a new invoice instead
+        const manualId = await db.invoices.add({
+          studentIdFk: Number(studentId),
+          feeGroupId: invoice.feeGroupId,
+          feeType: 'manual',
+          amount: amt,
+          paid: 0,
+          status: 'open',
+          createdAt: date || new Date().toISOString().slice(0,10)
+        });
+        await db.payments.add({
+          studentIdFk: Number(studentId),
+          feeGroupId: invoice.feeGroupId || null,
+          invoiceIdFk: manualId,
+          type: 'debit',
+          amount: amt,
+          note,
+          date: date || new Date().toISOString().slice(0,10),
+          lastChangeReason: ''
+        });
+        return;
+      }
+      const newPaid = Math.min((Number(invoice.paid)||0) + amt, Number(invoice.amount)||0);
+      const status = statusFromPaid(Number(invoice.amount)||0, newPaid);
+      await db.invoices.update(invoice.id, { paid: newPaid, status });
+      await db.payments.add({
+        studentIdFk: Number(studentId),
+        feeGroupId: invoice.feeGroupId || null,
+        invoiceIdFk: invoice.id,
+        type,
+        amount: amt,
+        note,
+        date: date || new Date().toISOString().slice(0,10),
+        lastChangeReason: ''
+      });
+    }
+
+    async function renderLedger(studentId){
+      const profileEl = document.getElementById('ledger-profile');
+      const invoiceTbody = document.getElementById('rows-ledger-invoices');
+      const paymentTbody = document.getElementById('rows-ledger-payments');
+      const invoiceSel = document.getElementById('ledger-invoice');
+      const summaryEl = document.getElementById('ledger-balance-summary');
+      if (!profileEl || !invoiceTbody || !paymentTbody || !invoiceSel || !summaryEl) return;
+
+      if (!studentId){
+        profileEl.textContent = 'Select a student to view details.';
+        invoiceTbody.innerHTML = '';
+        paymentTbody.innerHTML = '';
+        invoiceSel.innerHTML = '<option value=\"\">Select Invoice</option>';
+        summaryEl.textContent = '';
+        return;
+      }
+
+      const [student, program, feeGroup] = await Promise.all([
+        db.students.get(Number(studentId)),
+        (async ()=>{
+          const s = await db.students.get(Number(studentId));
+          return s?.programId ? db.programs.get(s.programId) : null;
+        })(),
+        (async ()=>{
+          const s = await db.students.get(Number(studentId));
+          return s?.feeGroupId ? db.feeGroups.get(s.feeGroupId) : null;
+        })()
+      ]);
+      let invoices = await db.invoices.where('studentIdFk').equals(Number(studentId)).toArray();
+      const payments = (await db.payments.where('studentIdFk').equals(Number(studentId)).toArray()).filter(p => !p.deleted);
+
+      // Ensure invoices exist for assigned fee group
+      if (student?.feeGroupId){
+        await ensureInvoicesForFeeGroup(student.id, student.feeGroupId);
+        invoices = await db.invoices.where('studentIdFk').equals(Number(studentId)).toArray();
+      }
+
+      profileEl.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
+          <div><span class="text-gray-500">Name</span><div class="font-medium">${student?.name||'-'}</div></div>
+          <div><span class="text-gray-500">Program</span><div class="font-medium">${program?.name||'-'}</div></div>
+          <div><span class="text-gray-500">Fee Group</span><div class="font-medium">${feeGroup?.name||'-'}</div></div>
+          <div><span class="text-gray-500">Intake</span><div class="font-medium">${student?.intake||'-'}</div></div>
+          <div><span class="text-gray-500">Payment Plan</span><div class="font-medium">${(student?.paymentPlan==='installment6' && '6-Month Installment')||(student?.paymentPlan==='installment12' && '12-Month Installment')||'Lump Sum'}</div></div>
+          <div><span class="text-gray-500">Registration Date</span><div class="font-medium">${student?.registrationDate||'-'}</div></div>
+        </div>
+      `;
+
+      // Invoices
+      invoices.sort((a,b)=> (a.createdAt||'').localeCompare(b.createdAt||''));
+      invoiceTbody.innerHTML = '';
+      let totalCharge = 0, totalPaid = 0;
+      for (let i=0;i<invoices.length;i++){
+        const inv = invoices[i];
+        const amount = Number(inv.amount)||0;
+        const paid = Number(inv.paid)||0;
+        const balance = amount - paid;
+        totalCharge += amount;
+        totalPaid += paid;
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="py-2 pr-4">${i+1}</td>
+          <td class="py-2 pr-4 capitalize">${inv.feeType || '-'}</td>
+          <td class="py-2 pr-4">${feeGroup?.name || '-'}</td>
+          <td class="py-2 pr-4">${amount.toFixed(2)}</td>
+          <td class="py-2 pr-4">${paid.toFixed(2)}</td>
+          <td class="py-2 pr-4">${balance.toFixed(2)}</td>
+          <td class="py-2 pr-4">${inv.status || 'open'}</td>
+          <td class="py-2 pr-4">${inv.createdAt || '-'}</td>
+        `;
+        invoiceTbody.appendChild(tr);
+      }
+
+      // Invoice select list
+      invoiceSel.innerHTML = '<option value=\"\">Select Invoice</option>';
+      invoices.forEach(inv => {
+        const bal = (Number(inv.amount)||0) - (Number(inv.paid)||0);
+        const opt = document.createElement('option');
+        opt.value = inv.id;
+        opt.textContent = `${inv.feeType || 'Invoice'} - Bal ${bal.toFixed(2)}`;
+        invoiceSel.appendChild(opt);
+      });
+
+      // Payments
+      paymentTbody.innerHTML = '';
+      payments.sort((a,b)=> (a.date||'').localeCompare(b.date||'')).reverse();
+      payments.forEach((p, i) => {
+        const amt = Number(p.amount)||0;
+        const label = (p.type||'').toString().toUpperCase();
+        const inv = invoices.find(inv=>inv.id === p.invoiceIdFk);
+        const applied = inv ? `${inv.feeType||'Invoice'}` : '-';
+        const noteText = [p.note || '', p.lastChangeReason ? `Reason: ${p.lastChangeReason}` : ''].filter(Boolean).join(' | ');
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="py-2 pr-4">${i+1}</td>
+          <td class="py-2 pr-4">${p.date || '-'}</td>
+          <td class="py-2 pr-4">${label}</td>
+          <td class="py-2 pr-4">${p.type === 'debit' ? '+' : '-'}${amt.toFixed(2)}</td>
+          <td class="py-2 pr-4">${applied}</td>
+          <td class="py-2 pr-4">${noteText}</td>
+          <td class="py-2 pr-4 space-x-2">
+            <button class="text-blue-600 underline text-xs btn-payment-edit" data-id="${p.id}">Edit</button>
+            <button class="text-red-600 underline text-xs btn-payment-delete" data-id="${p.id}">Remove</button>
+          </td>
+        `;
+        paymentTbody.appendChild(tr);
+      });
+
+      const balance = totalCharge - totalPaid;
+      summaryEl.textContent = `Charges: ${totalCharge.toFixed(2)} | Paid/Discounts: ${totalPaid.toFixed(2)} | Balance: ${balance.toFixed(2)}`;
+    }
+
+    // ---------------------- GPA Helpers ----------------------
+    async function computeGPABySemester(studentId){
+      const results = await db.results.where('studentIdFk').equals(Number(studentId)).toArray();
+      const bySem = {};
+      for (const r of results){
+        const credit = Number(r.credit) || 0;
+        const qp = (Number(r.point) || 0) * credit; // quality points
+        if (!bySem[r.semester]) bySem[r.semester] = {credits: 0, qp: 0, rows: []};
+        bySem[r.semester].credits += credit;
+        bySem[r.semester].qp += qp;
+        bySem[r.semester].rows.push(r);
+      }
+      const semesters = Object.keys(bySem).sort();
+      const view = semesters.map(sem => {
+        const d = bySem[sem];
+        const gpa = d.credits > 0 ? d.qp / d.credits : 0;
+        return { semester: sem, credits: d.credits, qp: d.qp, gpa: gpa };
+      });
+      const totalCredits = view.reduce((a,b)=>a+b.credits,0);
+      const totalQP = view.reduce((a,b)=>a+b.qp,0);
+      const cgpa = totalCredits > 0 ? totalQP / totalCredits : 0;
+      return { semesters: view, cgpa, detail: bySem };
+    }
+
+    // ---------------------- Forms ----------------------
+    let editingProgramId = null;
+    const programSubmitBtn = document.getElementById('program-submit');
+    const programCancelBtn = document.getElementById('program-cancel-edit');
+    const programEditingLabel = document.getElementById('program-editing-label');
+
+    function setProgramFormMode(editing){
+      if (!programSubmitBtn || !programCancelBtn || !programEditingLabel) return;
+      if (editing){
+        programSubmitBtn.textContent = 'Update Program';
+        programCancelBtn.classList.remove('hidden');
+        programEditingLabel.classList.remove('hidden');
+      } else {
+        programSubmitBtn.textContent = 'Save Program';
+        programCancelBtn.classList.add('hidden');
+        programEditingLabel.classList.add('hidden');
+      }
+    }
+    setProgramFormMode(false);
+
+    if (programCancelBtn){
+      programCancelBtn.addEventListener('click', () => {
+        editingProgramId = null;
+        const form = document.getElementById('form-program');
+        form.reset();
+        setProgramFormMode(false);
+        resetProgramCourseDrafts();
+      });
+    }
+
+    let programCourseDrafts = [];
+    let programCourseDraftEditingKey = null;
+    let programCourseDraftCounter = 1;
+    const programCourseCodeInput = document.getElementById('program-course-code');
+    const programCourseTitleInput = document.getElementById('program-course-title');
+    const programCourseCreditInput = document.getElementById('program-course-credit');
+    const programCourseAddBtn = document.getElementById('program-course-add');
+    const programCourseCancelBtn = document.getElementById('program-course-cancel');
+    const programCourseEditingLabel = document.getElementById('program-course-editing-label');
+
+    function setProgramCourseDraftFormMode(editing){
+      if (!programCourseAddBtn || !programCourseCancelBtn || !programCourseEditingLabel) return;
+      if (editing){
+        programCourseAddBtn.textContent = 'Update Course';
+        programCourseCancelBtn.classList.remove('hidden');
+        programCourseEditingLabel.classList.remove('hidden');
+      } else {
+        programCourseAddBtn.textContent = 'Add Course';
+        programCourseCancelBtn.classList.add('hidden');
+        programCourseEditingLabel.classList.add('hidden');
+      }
+    }
+
+    function resetProgramCourseDraftForm(){
+      if (programCourseCodeInput) programCourseCodeInput.value = '';
+      if (programCourseTitleInput) programCourseTitleInput.value = '';
+      if (programCourseCreditInput) programCourseCreditInput.value = '';
+      programCourseDraftEditingKey = null;
+      setProgramCourseDraftFormMode(false);
+    }
+
+    function renderProgramCourseDrafts(){
+      const tbody = document.getElementById('program-course-drafts');
+      if (!tbody) return;
+      if (!programCourseDrafts.length){
+        tbody.innerHTML = `<tr><td colspan="5" class="py-3 px-2 text-center text-gray-500">No courses added yet.</td></tr>`;
+        return;
+      }
+      tbody.innerHTML = '';
+      programCourseDrafts.forEach((c, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="py-2 px-2">${idx + 1}</td>
+          <td class="py-2 px-2">${c.code || ''}</td>
+          <td class="py-2 px-2">${c.title || ''}</td>
+          <td class="py-2 px-2">${c.credit ?? ''}</td>
+          <td class="py-2 px-2">
+            <button type="button" class="text-blue-600 underline text-xs" data-action="edit-draft-course" data-key="${c.key}">Edit</button>
+            <button type="button" class="text-red-600 underline text-xs ml-2" data-action="delete-draft-course" data-key="${c.key}">Delete</button>
+          </td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    function resetProgramCourseDrafts(){
+      programCourseDrafts = [];
+      programCourseDraftEditingKey = null;
+      resetProgramCourseDraftForm();
+      renderProgramCourseDrafts();
+    }
+
+    async function loadProgramCoursesIntoDrafts(programId){
+      const courses = programId ? await db.courses.where('programId').equals(programId).toArray() : [];
+      programCourseDrafts = courses.map(c => ({
+        key: `existing-${c.id}`,
+        id: c.id,
+        code: c.code || '',
+        title: c.title || '',
+        credit: c.credit ?? ''
+      }));
+      programCourseDraftEditingKey = null;
+      resetProgramCourseDraftForm();
+      renderProgramCourseDrafts();
+    }
+
+    function upsertProgramCourseDraft(entry){
+      if (programCourseDraftEditingKey){
+        const idx = programCourseDrafts.findIndex(d => d.key === programCourseDraftEditingKey);
+        if (idx >= 0){
+          programCourseDrafts[idx] = { ...programCourseDrafts[idx], ...entry };
+        }
+      } else {
+        programCourseDrafts.push({
+          key: `draft-${Date.now()}-${programCourseDraftCounter++}`,
+          ...entry
+        });
+      }
+      programCourseDraftEditingKey = null;
+      resetProgramCourseDraftForm();
+      renderProgramCourseDrafts();
+    }
+
+    if (programCourseAddBtn){
+      programCourseAddBtn.addEventListener('click', () => {
+        const code = programCourseCodeInput?.value.trim();
+        const title = programCourseTitleInput?.value.trim();
+        const creditRaw = programCourseCreditInput?.value;
+        if (!code || !title) return alert('Course code and title are required');
+        const credit = creditRaw === '' || creditRaw === undefined ? '' : Number(creditRaw);
+        const existing = programCourseDraftEditingKey ? programCourseDrafts.find(d => d.key === programCourseDraftEditingKey) : null;
+        upsertProgramCourseDraft({
+          key: existing?.key,
+          id: existing?.id,
+          code,
+          title,
+          credit: credit === '' || Number.isNaN(credit) ? '' : credit
+        });
+      });
+    }
+
+    if (programCourseCancelBtn){
+      programCourseCancelBtn.addEventListener('click', () => {
+        programCourseDraftEditingKey = null;
+        resetProgramCourseDraftForm();
+      });
+    }
+
+    const programCourseDraftTable = document.getElementById('program-course-drafts');
+    if (programCourseDraftTable){
+      programCourseDraftTable.addEventListener('click', (ev) => {
+        const btn = ev.target instanceof HTMLElement ? ev.target.closest('button[data-action]') : null;
+        if (!btn) return;
+        const action = btn.dataset.action;
+        const key = btn.dataset.key;
+        if (!action || !key) return;
+        if (action === 'edit-draft-course'){
+          const entry = programCourseDrafts.find(c => c.key === key);
+          if (!entry) return;
+          if (programCourseCodeInput) programCourseCodeInput.value = entry.code || '';
+          if (programCourseTitleInput) programCourseTitleInput.value = entry.title || '';
+          if (programCourseCreditInput) programCourseCreditInput.value = entry.credit === '' || entry.credit === null || entry.credit === undefined ? '' : entry.credit;
+          programCourseDraftEditingKey = entry.key;
+          setProgramCourseDraftFormMode(true);
+        } else if (action === 'delete-draft-course'){
+          programCourseDrafts = programCourseDrafts.filter(c => c.key !== key);
+          if (programCourseDraftEditingKey === key){
+            programCourseDraftEditingKey = null;
+            resetProgramCourseDraftForm();
+          }
+          renderProgramCourseDrafts();
+        }
+      });
+    }
+
+    resetProgramCourseDrafts();
+
+    async function persistProgramCourses(programId){
+      const existing = await db.courses.where('programId').equals(programId).toArray();
+      const keptIds = new Set();
+      for (const draft of programCourseDrafts){
+        const rawCredit = draft.credit === '' || draft.credit === null || draft.credit === undefined ? 0 : Number(draft.credit);
+        const credit = Number.isFinite(rawCredit) ? rawCredit : 0;
+        if (draft.id){
+          keptIds.add(draft.id);
+          await db.courses.update(draft.id, {
+            code: draft.code,
+            title: draft.title,
+            credit,
+            programId
+          });
+          await db.results.where('courseIdFk').equals(draft.id).modify({ credit });
+        } else {
+          const newId = await db.courses.add({
+            code: draft.code,
+            title: draft.title,
+            credit,
+            programId
+          });
+          await assignCourseToStudents(newId, programId);
+        }
+      }
+      const toDelete = existing.filter(c => !keptIds.has(c.id));
+      for (const course of toDelete){
+        await deleteCourseCascade(course.id);
+      }
+    }
+
+    async function renderProgramCourseList(container, programId){
+      if (!container) return;
+      container.textContent = 'Loading courses…';
+      const courses = await db.courses.where('programId').equals(programId).toArray();
+      if (!courses.length){
+        container.textContent = 'No courses registered for this program.';
+        return;
+      }
+      const wrapper = document.createElement('div');
+      wrapper.className = 'overflow-x-auto';
+      const table = document.createElement('table');
+      table.className = 'min-w-full text-xs border rounded bg-white';
+      table.innerHTML = `
+        <thead>
+          <tr class="bg-gray-100 text-left">
+            <th class="py-1 px-2 border-b">#</th>
+            <th class="py-1 px-2 border-b">Code</th>
+            <th class="py-1 px-2 border-b">Title</th>
+            <th class="py-1 px-2 border-b">Credit</th>
+          </tr>
+        </thead>
+        <tbody></tbody>
+      `;
+      const tbody = table.querySelector('tbody');
+      courses.forEach((c, idx) => {
+        const tr = document.createElement('tr');
+        tr.innerHTML = `
+          <td class="py-1 px-2 border-b">${idx + 1}</td>
+          <td class="py-1 px-2 border-b">${c.code || ''}</td>
+          <td class="py-1 px-2 border-b">${c.title || ''}</td>
+          <td class="py-1 px-2 border-b">${c.credit ?? ''}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+      wrapper.appendChild(table);
+      container.innerHTML = '';
+      container.appendChild(wrapper);
+    }
+
+    document.getElementById('form-program').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const data = Object.fromEntries(fd.entries());
+      const durationYears = data.duration ? Number(data.duration) : null;
+      const projectType = normalizeProjectType(data.projectType) || PROJECT_OPTIONS[0];
+      const level = (data.level || '').toString().trim() || 'Master';
+      const payload = {
+        name: data.name?.trim(),
+        level,
+        mode: data.mode?.trim(),
+        projectType,
+        duration: Number.isFinite(durationYears) ? durationYears : null
+      };
+      if (editingProgramId){
+        await db.programs.update(editingProgramId, payload);
+        await persistProgramCourses(editingProgramId);
+        editingProgramId = null;
+        setProgramFormMode(false);
+        alert('Program updated.');
+      } else {
+        const newId = await db.programs.add(payload);
+        await persistProgramCourses(newId);
+        alert('Program saved.');
+      }
+      e.target.reset();
+      resetProgramCourseDrafts();
+      await renderPrograms();
+      await renderCourses();
+      const selectedStudent = document.getElementById('result-student')?.value || '';
+      await populateResultCourses(selectedStudent);
+    });
+
+    let editingStudentId = null;
+    const studentSubmitBtn = document.getElementById('student-submit');
+    const studentCancelBtn = document.getElementById('student-cancel-edit');
+    const studentEditingLabel = document.getElementById('student-editing-label');
+
+    function setStudentFormMode(editing){
+      if (!studentSubmitBtn || !studentCancelBtn || !studentEditingLabel) return;
+      if (editing){
+        studentSubmitBtn.textContent = 'Update Student';
+        studentCancelBtn.classList.remove('hidden');
+        studentEditingLabel.classList.remove('hidden');
+      } else {
+        studentSubmitBtn.textContent = 'Save Student';
+        studentCancelBtn.classList.add('hidden');
+        studentEditingLabel.classList.add('hidden');
+      }
+    }
+    setStudentFormMode(false);
+
+    let editingLedgerPaymentId = null;
+    const ledgerPaymentSubmitBtn = document.getElementById('ledger-payment-submit');
+    const ledgerPaymentCancelBtn = document.getElementById('ledger-payment-cancel');
+    const ledgerPaymentEditingLabel = document.getElementById('ledger-payment-editing-label');
+    function setLedgerPaymentFormMode(editing){
+      if (!ledgerPaymentSubmitBtn || !ledgerPaymentCancelBtn || !ledgerPaymentEditingLabel) return;
+      if (editing){
+        ledgerPaymentSubmitBtn.textContent = 'Update Payment';
+        ledgerPaymentCancelBtn.classList.remove('hidden');
+        ledgerPaymentEditingLabel.classList.remove('hidden');
+      } else {
+        ledgerPaymentSubmitBtn.textContent = 'Save Payment';
+        ledgerPaymentCancelBtn.classList.add('hidden');
+        ledgerPaymentEditingLabel.classList.add('hidden');
+      }
+    }
+    setLedgerPaymentFormMode(false);
+
+    if (ledgerPaymentCancelBtn){
+      ledgerPaymentCancelBtn.addEventListener('click', ()=>{
+        const form = document.getElementById('form-ledger-payment');
+        if (form) form.reset();
+        editingLedgerPaymentId = null;
+        setLedgerPaymentFormMode(false);
+      });
+    }
+
+    document.getElementById('form-student').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const data = Object.fromEntries(fd.entries());
+      if (!data.name) return alert('Name is required');
+      const payload = {
+        studentId: data.studentId?.trim() || undefined,
+        name: data.name.trim(),
+        email: data.email?.trim(),
+        phone: data.phone?.trim(),
+        registrationDate: data.registrationDate || '',
+        intake: data.intake?.trim(),
+        programId: data.programId ? Number(data.programId) : null,
+        feeGroupId: data.feeGroupId ? Number(data.feeGroupId) : null,
+        paymentPlan: data.paymentPlan || 'lump',
+        status: data.status || 'Active'
+      };
+      if (editingStudentId){
+        await db.students.update(editingStudentId, payload);
+        if (payload.feeGroupId){
+          await ensureInvoicesForFeeGroup(editingStudentId, payload.feeGroupId);
+        }
+        await syncStudentCourses(editingStudentId, payload.programId);
+        alert('Student updated.');
+      } else {
+        const newId = await db.students.add(payload);
+        if (payload.feeGroupId){
+          await ensureInvoicesForFeeGroup(newId, payload.feeGroupId);
+        }
+        await syncStudentCourses(newId, payload.programId);
+        alert('Student saved.');
+      }
+      editingStudentId = null;
+      setStudentFormMode(false);
+      e.target.reset();
+      await renderStudents();
+      await loadProgramsIntoSelects();
+      await renderLedgerOverview();
+    });
+
+    if (studentCancelBtn){
+      studentCancelBtn.addEventListener('click', () => {
+        editingStudentId = null;
+        setStudentFormMode(false);
+        document.getElementById('form-student').reset();
+      });
+    }
+
+
+    const programTable = document.getElementById('tbl-programs');
+    if (programTable){
+      programTable.addEventListener('click', async (ev) => {
+        const target = ev.target;
+        if (!(target instanceof HTMLElement)) return;
+        const action = target.dataset.action;
+        const id = target.dataset.id ? Number(target.dataset.id) : null;
+        if (!action || !id) return;
+        if (action === 'edit-program'){
+          const record = await db.programs.get(id);
+          if (!record) return;
+          const form = document.getElementById('form-program');
+          form.elements['name'].value = record.name || '';
+          form.elements['level'].value = record.level || '';
+          form.elements['mode'].value = record.mode || '';
+          form.elements['projectType'].value = record.projectType || '';
+          form.elements['duration'].value = record.duration ?? '';
+          await loadProgramCoursesIntoDrafts(id);
+          editingProgramId = id;
+          setProgramFormMode(true);
+          window.scrollTo({ top: form.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
+        } else if (action === 'toggle-courses'){
+          const detailRow = document.querySelector(`tr[data-detail-for="${id}"]`);
+          if (!detailRow) return;
+          const currentlyHidden = detailRow.classList.contains('hidden');
+          document.querySelectorAll('tr[data-detail-for]').forEach(row => row.classList.add('hidden'));
+          if (currentlyHidden){
+            detailRow.classList.remove('hidden');
+            const container = detailRow.querySelector(`[data-courses-list="${id}"]`);
+            await renderProgramCourseList(container, id);
+          }
+        } else if (action === 'delete-program'){
+          const confirmDel = confirm('Delete this program? This removes its courses and unlinks affected students/results.');
+          if (!confirmDel) return;
+          await deleteProgramCascade(id);
+          if (editingProgramId === id){
+            editingProgramId = null;
+            const form = document.getElementById('form-program');
+            form.reset();
+            setProgramFormMode(false);
+            resetProgramCourseDrafts();
+          }
+          await renderPrograms();
+          await renderCourses();
+          await renderStudents();
+          await renderResults();
+          await renderFeeGroups();
+          const selectedStudent = document.getElementById('result-student')?.value || '';
+          await populateResultCourses(selectedStudent);
+          alert('Program deleted.');
+        }
+      });
+    }
+
+    // Student table actions (edit/delete)
+    const studentTable = document.getElementById('tbl-students');
+    if (studentTable){
+      studentTable.addEventListener('click', async (ev) => {
+        const target = ev.target;
+        if (!(target instanceof HTMLElement)) return;
+        const action = target.dataset.action;
+        const id = target.dataset.id ? Number(target.dataset.id) : null;
+        if (!action || !id) return;
+        if (action === 'edit-student'){
+          const s = await db.students.get(id);
+          if (!s) return;
+          await loadProgramsIntoSelects();
+          const form = document.getElementById('form-student');
+          form.elements['studentId'].value = s.studentId || '';
+          form.elements['name'].value = s.name || '';
+          form.elements['email'].value = s.email || '';
+          form.elements['phone'].value = s.phone || '';
+          form.elements['registrationDate'].value = s.registrationDate || '';
+          form.elements['intake'].value = s.intake || '';
+          form.elements['programId'].value = s.programId || '';
+          form.elements['feeGroupId'].value = s.feeGroupId || '';
+          form.elements['paymentPlan'].value = s.paymentPlan || 'lump';
+          form.elements['status'].value = s.status || 'Active';
+          editingStudentId = id;
+          setStudentFormMode(true);
+          window.scrollTo({ top: form.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
+        } else if (action === 'delete-student'){
+          const confirmDel = confirm('Delete this student and related invoices/payments/results?');
+          if (!confirmDel) return;
+          await db.transaction('rw', db.students, db.results, db.payments, db.invoices, db.studentCourses, async () => {
+            await db.students.delete(id);
+            await db.results.where('studentIdFk').equals(id).delete();
+            await db.payments.where('studentIdFk').equals(id).delete();
+            await db.invoices.where('studentIdFk').equals(id).delete();
+            await db.studentCourses.where('studentIdFk').equals(id).delete();
+          });
+          const ledgerSel = document.getElementById('ledger-student');
+          if (ledgerSel && ledgerSel.value === String(id)){
+            ledgerSel.value = '';
+            await renderLedger('');
+          }
+          editingStudentId = null;
+          setStudentFormMode(false);
+          document.getElementById('form-student').reset();
+          await renderStudents();
+          await renderResults();
+          await renderPayments();
+          await renderLedgerOverview();
+          alert('Student deleted.');
+        }
+      });
+    }
+
+    // Live grade preview when typing mark
+    const formResult = document.getElementById('form-result');
+    const markInput = formResult.querySelector('input[name="mark"]');
+    const preview = document.getElementById('result-preview');
+    markInput.addEventListener('input', () => {
+      const m = Number(markInput.value);
+      const g = gradeFromMark(m);
+      preview.textContent = isNaN(m) ? '' : `Grade Preview: ${g.grade}, Point ${g.point.toFixed(2)}`;
+    });
+
+    document.getElementById('form-result').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const data = Object.fromEntries(fd.entries());
+      if (!data.studentId || !data.courseId) return alert('Select student and course');
+      const course = await db.courses.get(Number(data.courseId));
+      const credit = Number(course?.credit) || 0;
+      const m = Number(data.mark);
+      const g = gradeFromMark(m);
+      await db.results.add({
+        studentIdFk: Number(data.studentId),
+        courseIdFk: Number(data.courseId),
+        semester: data.semester.trim(),
+        mark: m,
+        grade: g.grade,
+        point: g.point,
+        credit: credit
+      });
+      e.target.reset();
+      preview.textContent = '';
+      await renderResults();
+      alert('Result saved.');
+    });
+
+    document.getElementById('refresh-programs').addEventListener('click', renderPrograms);
+    document.getElementById('refresh-students').addEventListener('click', renderStudents);
+    document.getElementById('refresh-results').addEventListener('click', renderResults);
+
+    let editingAgentId = null;
+    const agentSubmitBtn = document.getElementById('agent-submit');
+    const agentCancelBtn = document.getElementById('agent-cancel-edit');
+    const agentEditingLabel = document.getElementById('agent-editing-label');
+
+    function setAgentFormMode(editing){
+      if (!agentSubmitBtn || !agentCancelBtn || !agentEditingLabel) return;
+      if (editing){
+        agentSubmitBtn.textContent = 'Update Agent';
+        agentCancelBtn.classList.remove('hidden');
+        agentEditingLabel.classList.remove('hidden');
+      } else {
+        agentSubmitBtn.textContent = 'Save Agent';
+        agentCancelBtn.classList.add('hidden');
+        agentEditingLabel.classList.add('hidden');
+      }
+    }
+    setAgentFormMode(false);
+
+    if (agentCancelBtn){
+      agentCancelBtn.addEventListener('click', () => {
+        editingAgentId = null;
+        setAgentFormMode(false);
+        document.getElementById('form-agent')?.reset();
+      });
+    }
+
+    document.getElementById('form-agent').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const data = Object.fromEntries(fd.entries());
+      const name = (data.name || '').toString().trim();
+      if (!name) return alert('Agent name is required');
+      const payload = {
+        name,
+        email: (data.email || '').toString().trim(),
+        phone: (data.phone || '').toString().trim(),
+        agreement: (data.agreement || '').toString().trim(),
+        agreementLink: (data.agreementLink || '').toString().trim()
+      };
+      const isEditingAgent = !!editingAgentId;
+      if (isEditingAgent){
+        await db.agents.update(editingAgentId, payload);
+      } else {
+        await db.agents.add({
+          ...payload,
+          status: 'Active',
+          terminatedAt: '',
+          terminatedReason: ''
+        });
+      }
+      e.target.reset();
+      editingAgentId = null;
+      setAgentFormMode(false);
+      await renderAgents();
+      await renderFeeGroups();
+      await loadFeeGroupsIntoSelects();
+      await renderLedgerOverview();
+      alert(isEditingAgent ? 'Agent updated.' : 'Agent saved.');
+    });
+
+    const agentTable = document.getElementById('tbl-agents');
+    if (agentTable){
+      agentTable.addEventListener('click', async (ev) => {
+        const target = ev.target;
+        if (!(target instanceof HTMLElement)) return;
+        const action = target.dataset.action;
+        const id = target.dataset.id ? Number(target.dataset.id) : null;
+        if (!action || !id) return;
+        if (action === 'edit-agent'){
+          const record = await db.agents.get(id);
+          if (!record) return;
+          const form = document.getElementById('form-agent');
+          if (!form) return;
+          form.elements['name'].value = record.name || '';
+          form.elements['email'].value = record.email || '';
+          form.elements['phone'].value = record.phone || '';
+          form.elements['agreementLink'].value = record.agreementLink || '';
+          form.elements['agreement'].value = record.agreement || '';
+          editingAgentId = id;
+          setAgentFormMode(true);
+          window.scrollTo({ top: form.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
+        }
+        if (action === 'terminate-agent'){
+          const confirmTerm = confirm('Terminate this agent? All linked fee groups will be deleted.');
+          if (!confirmTerm) return;
+          const reason = prompt('Optional: provide a reason for termination') || '';
+          try {
+            await terminateAgent(id, reason.trim());
+            if (editingAgentId === id){
+              editingAgentId = null;
+              setAgentFormMode(false);
+              document.getElementById('form-agent')?.reset();
+            }
+            await renderAgents();
+            await renderFeeGroups();
+            await loadFeeGroupsIntoSelects();
+            await loadAgentsIntoSelects();
+            await renderLedgerOverview();
+            alert('Agent terminated and related fee groups removed.');
+          } catch (err){
+            console.error(err);
+            alert(err.message || 'Unable to terminate agent.');
+          }
+        }
+      });
+    }
+
+    document.getElementById('form-feegroup').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const data = Object.fromEntries(fd.entries());
+      if (!data.name || !data.programId || !data.agentId){
+        return alert('Fee group name, program, and agent are required.');
+      }
+      await db.feeGroups.add({
+        name: data.name.trim(),
+        programId: Number(data.programId),
+        agentId: Number(data.agentId),
+        registrationFee: Number(data.registrationFee) || 0,
+        tuitionFee: Number(data.tuitionFee) || 0,
+        convocationFee: Number(data.convocationFee) || 0
+      });
+      e.target.reset();
+      await renderFeeGroups();
+      await renderLedgerOverview();
+      alert('Fee group saved.');
+    });
+
+    const formPayment = document.getElementById('form-payment');
+    if (formPayment){
+      formPayment.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const data = Object.fromEntries(fd.entries());
+        if (!data.studentId) return alert('Please select a student.');
+        if (!data.amount) return alert('Amount is required.');
+        const amount = Number(data.amount);
+        if (isNaN(amount) || amount < 0) return alert('Amount must be a positive number.');
+        const type = (data.type || 'debit').toString().toLowerCase();
+        const date = data.date || new Date().toISOString().slice(0,10);
+        await db.payments.add({
+          studentIdFk: Number(data.studentId),
+          feeGroupId: data.feeGroupId ? Number(data.feeGroupId) : null,
+          type,
+          amount,
+          note: (data.note || '').toString().trim(),
+          date,
+          lastChangeReason: ''
+        });
+        e.target.reset();
+        await renderPayments();
+        await renderLedgerOverview();
+        alert('Payment record saved.');
+      });
+    }
+
+    const ledgerFilterIds = ['ledger-filter-program','ledger-filter-agent','ledger-filter-student'];
+    ledgerFilterIds.forEach(id => {
+      const el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('change', () => {
+        renderLedgerOverview();
+      });
+    });
+    const ledgerResetBtn = document.getElementById('ledger-filter-reset');
+    if (ledgerResetBtn){
+      ledgerResetBtn.addEventListener('click', () => {
+        ledgerFilterIds.forEach(id => {
+          const el = document.getElementById(id);
+          if (el) el.value = '';
+        });
+        renderLedgerOverview();
+      });
+    }
+
+    // Ledger: student selection
+    const ledgerStudentSel = document.getElementById('ledger-student');
+    if (ledgerStudentSel){
+      ledgerStudentSel.addEventListener('change', async (e)=>{
+        await renderLedger(e.target.value);
+        const form = document.getElementById('form-ledger-payment');
+        if (form) form.reset();
+        editingLedgerPaymentId = null;
+        setLedgerPaymentFormMode(false);
+      });
+    }
+
+    // Ledger: payment table actions (edit/remove)
+    const ledgerPaymentRows = document.getElementById('rows-ledger-payments');
+    if (ledgerPaymentRows){
+      ledgerPaymentRows.addEventListener('click', async (e) => {
+        const target = e.target;
+        if (!(target instanceof HTMLElement)) return;
+        const pid = target.dataset?.id ? Number(target.dataset.id) : null;
+        if (!pid) return;
+
+        if (target.classList.contains('btn-payment-edit')){
+          const payment = await db.payments.get(pid);
+          if (!payment || payment.deleted) return;
+          const form = document.getElementById('form-ledger-payment');
+          if (form){
+            form.type.value = payment.type || 'credit';
+            form.amount.value = payment.amount || '';
+            form.invoiceId.value = payment.invoiceIdFk || '';
+            form.date.value = payment.date || '';
+            form.note.value = payment.note || '';
+          }
+          editingLedgerPaymentId = pid;
+          setLedgerPaymentFormMode(true);
+        }
+
+        if (target.classList.contains('btn-payment-delete')){
+          await deleteLedgerPayment(pid);
+          editingLedgerPaymentId = null;
+          setLedgerPaymentFormMode(false);
+          const sid = document.getElementById('ledger-student')?.value;
+          if (sid){
+            await renderLedger(sid);
+            await renderPayments();
+            await renderLedgerOverview();
+          }
+        }
+      });
+    }
+
+    // Ledger: manual charge shortcut
+    const btnAddCharge = document.getElementById('ledger-add-charge');
+    if (btnAddCharge){
+      btnAddCharge.addEventListener('click', async ()=>{
+        const sid = document.getElementById('ledger-student')?.value;
+        if (!sid) return alert('Select a student first.');
+        const amountStr = prompt('Enter charge amount:');
+        if (!amountStr) return;
+        const amt = Number(amountStr);
+        if (isNaN(amt) || amt <= 0) return alert('Invalid amount.');
+        const feeType = prompt('Enter fee label (e.g., Misc, Penalty):', 'manual') || 'manual';
+        const feeGroupId = (await db.students.get(Number(sid)))?.feeGroupId || null;
+        const today = new Date().toISOString().slice(0,10);
+        await db.invoices.add({
+          studentIdFk: Number(sid),
+          feeGroupId,
+          feeType: feeType.toString().toLowerCase(),
+          amount: amt,
+          paid: 0,
+          status: 'open',
+          createdAt: today
+        });
+        await renderLedger(sid);
+        await renderLedgerOverview();
+        alert('Charge added.');
+      });
+    }
+
+    // Ledger: payment apply / edit
+    document.getElementById('form-ledger-payment').addEventListener('submit', async (e) => {
+      e.preventDefault();
+      const fd = new FormData(e.target);
+      const data = Object.fromEntries(fd.entries());
+      const sid = document.getElementById('ledger-student')?.value;
+      if (!sid) return alert('Select a student first.');
+      const amount = Number(data.amount);
+      if (isNaN(amount) || amount <= 0) return alert('Amount must be positive.');
+      const type = data.type || 'credit';
+      const invoiceId = data.invoiceId ? Number(data.invoiceId) : null;
+      if ((type === 'credit' || type === 'discount') && !invoiceId && !editingLedgerPaymentId){
+        return alert('Select an invoice to apply the payment/discount.');
+      }
+
+      const isEditing = !!editingLedgerPaymentId;
+      let editReason = '';
+      if (isEditing){
+        editReason = prompt('Enter a reason for editing this payment:') || '';
+        editReason = editReason.trim();
+        if (!editReason) return alert('Reason is required to edit a payment.');
+      }
+
+      try {
+        if (isEditing){
+          await updateLedgerPayment({
+            paymentId: editingLedgerPaymentId,
+            studentId: Number(sid),
+            invoiceId,
+            type,
+            amount,
+            note: (data.note || '').toString().trim(),
+            date: data.date,
+            reason: editReason
+          });
+        } else if (type === 'debit' && !invoiceId){
+          // create a new manual charge invoice
+          const feeGroupId = (await db.students.get(Number(sid)))?.feeGroupId || null;
+          const today = data.date || new Date().toISOString().slice(0,10);
+          const newInvId = await db.invoices.add({
+            studentIdFk: Number(sid),
+            feeGroupId,
+            feeType: 'manual',
+            amount: amount,
+            paid: 0,
+            status: 'open',
+            createdAt: today
+          });
+          await db.payments.add({
+            studentIdFk: Number(sid),
+            feeGroupId,
+            invoiceIdFk: newInvId,
+            type: 'debit',
+            amount,
+            note: (data.note || '').toString().trim(),
+            date: today,
+            lastChangeReason: ''
+          });
+        } else {
+          await applyPaymentToInvoice({
+            studentId: Number(sid),
+            invoiceId,
+            type,
+            amount,
+            note: (data.note || '').toString().trim(),
+            date: data.date
+          });
+        }
+      } catch (err){
+        console.error(err);
+        alert(err.message || 'Unable to apply payment.');
+        return;
+      }
+
+      e.target.reset();
+      editingLedgerPaymentId = null;
+      setLedgerPaymentFormMode(false);
+      await renderLedger(sid);
+      await renderPayments();
+      await renderLedgerOverview();
+      alert(isEditing ? 'Payment updated.' : 'Saved.');
+    });
+
+    // ---------------------- Reports ----------------------
+    document.getElementById('btn-show-report').addEventListener('click', async () => {
+      const sel = document.getElementById('report-student');
+      const sid = sel.value;
+      if (!sid) return alert('Please select a student');
+      const student = await db.students.get(Number(sid));
+      const { semesters, cgpa, detail } = await computeGPABySemester(Number(sid));
+
+      const summary = document.getElementById('summary-box');
+      const reportContainer = document.getElementById('report-container');
+
+      if (!semesters.length){
+        summary.innerHTML = `
+          <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+            <div><span class="text-gray-500">Name</span><div class="font-medium">${student?.name || '-'}</div></div>
+            <div><span class="text-gray-500">Program</span><div class="font-medium" id="summary-program">-</div></div>
+            <div><span class="text-gray-500">Intake</span><div class="font-medium">${student?.intake || '-'}</div></div>
+            <div><span class="text-gray-500">CGPA</span><div class="font-medium">0.00</div></div>
+          </div>
+          <p class="mt-2 text-sm text-gray-500">No results recorded yet for this student.</p>
+        `;
+        if (student?.programId){
+          const p = await db.programs.get(student.programId);
+          document.getElementById('summary-program').textContent = p?.name || '-';
+        }
+        reportContainer.innerHTML = '<p class="text-sm text-gray-500">No semester results to display.</p>';
+        return;
+      }
+
+      // Summary box (with results)
+      summary.innerHTML = `
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
+          <div>
+            <span class="text-gray-500">Name</span>
+            <div class="font-medium">${student?.name || '-'}</div>
+          </div>
+          <div>
+            <span class="text-gray-500">Program</span>
+            <div id="summary-program" class="font-medium">-</div>
+          </div>
+          <div>
+            <span class="text-gray-500">Intake</span>
+            <div class="font-medium">${student?.intake || '-'}</div>
+          </div>
+          <div>
+            <span class="text-gray-500">CGPA</span>
+            <div class="font-medium">${cgpa.toFixed(2)}</div>
+          </div>
+        </div>`;
+      // Program name lookup
+      if (student?.programId){
+        const p = await db.programs.get(student.programId);
+        document.getElementById('summary-program').textContent = p?.name || '-';
+      }
+
+      // Results by semester
+      const wrap = reportContainer;
+      wrap.innerHTML = '';
+      const courses = await db.courses.toArray();
+      const cmap = Object.fromEntries(courses.map(c => [c.id, c]));
+
+      const semKeys = semesters.map(s=>s.semester);
+      for (const sem of semKeys){
+        const d = detail[sem];
+        const gpa = d.credits > 0 ? (d.qp / d.credits) : 0;
+        const card = document.createElement('div');
+        card.innerHTML = `
+          <div class="mb-2 text-sm text-gray-600">Semester: <span class="font-medium">${sem}</span></div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead>
+                <tr>
+                  <th class="py-2 pr-4 text-left border-b">#</th>
+                  <th class="py-2 pr-4 text-left border-b">Course</th>
+                  <th class="py-2 pr-4 text-left border-b">Credit</th>
+                  <th class="py-2 pr-4 text-left border-b">Mark</th>
+                  <th class="py-2 pr-4 text-left border-b">Grade</th>
+                  <th class="py-2 pr-4 text-left border-b">Point</th>
+                </tr>
+              </thead>
+              <tbody></tbody>
+            </table>
+          </div>
+          <div class="mt-2 text-sm">
+            Semester Credits: <span class="font-medium">${d.credits}</span>
+            · GPA: <span class="font-medium">${gpa.toFixed(2)}</span>
+          </div>
+        `;
+        const tbody = card.querySelector('tbody');
+        d.rows.forEach((r, i) => {
+          const c = cmap[r.courseIdFk];
+          const tr = document.createElement('tr');
+          tr.innerHTML = `
+            <td class="py-2 pr-4">${i+1}</td>
+            <td class="py-2 pr-4">${c ? `${c.code} — ${c.title}` : '-'}</td>
+            <td class="py-2 pr-4">${r.credit ?? '-'}</td>
+            <td class="py-2 pr-4">${r.mark ?? '-'}</td>
+            <td class="py-2 pr-4">${r.grade ?? '-'}</td>
+            <td class="py-2 pr-4">${(r.point ?? 0).toFixed(2)}</td>
+          `;
+          tbody.appendChild(tr);
+        });
+        wrap.appendChild(card);
+      }
+    });
+
+    // ---------------------- EXPORT HELPERS ----------------------
+    function aoaFromObjects(list, cols){
+      const header = cols;
+      const rows = list.map(item => cols.map(k => item[k] ?? ''));
+      return [header, ...rows];
+    }
+
+    function saveWorkbook(wb, filename){
+      XLSX.writeFile(wb, filename);
+    }
+
+    async function exportSheet(name, rows, columns){
+      const wb = XLSX.utils.book_new();
+      const ws = XLSX.utils.aoa_to_sheet(aoaFromObjects(rows, columns));
+      XLSX.utils.book_append_sheet(wb, ws, name);
+      saveWorkbook(wb, `pgsm_${name.toLowerCase()}_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    async function exportAllWorkbook(){
+      const [programs, students, courses, results, agents, feeGroups, payments, invoices, studentCourses] = await Promise.all([
+        db.programs.toArray(),
+        db.students.toArray(),
+        db.courses.toArray(),
+        db.results.toArray(),
+        db.agents.toArray(),
+        db.feeGroups.toArray(),
+        db.payments.toArray(),
+        db.invoices.toArray(),
+        db.studentCourses.toArray()
+      ]);
+      const wb = XLSX.utils.book_new();
+
+      // Programs
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(aoaFromObjects(programs, ['id','name','level','mode','projectType','duration'])),
+        'Programs'
+      );
+
+      const programsMap = Object.fromEntries(programs.map(p=>[p.id,p.name]));
+      const agentsMap = Object.fromEntries(agents.map(a=>[a.id,a.name]));
+
+      // Students (with program name)
+      const studentsView = students.map(s=>({
+        id: s.id,
+        studentId: s.studentId,
+        name: s.name,
+        email: s.email,
+        phone: s.phone,
+        intake: s.intake,
+        program: programsMap[s.programId] || '',
+        status: s.status
+      }));
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(aoaFromObjects(studentsView, ['id','studentId','name','email','phone','intake','program','status'])),
+        'Students'
+      );
+
+      // Courses
+      const coursesView = courses.map(c=>({
+        id: c.id,
+        code: c.code,
+        title: c.title,
+        credit: c.credit,
+        program: programsMap[c.programId] || ''
+      }));
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(aoaFromObjects(coursesView, ['id','code','title','credit','program'])),
+        'Courses'
+      );
+
+      // Results (with student & course info)
+      const sById = Object.fromEntries(students.map(s=>[s.id,s]));
+      const cById = Object.fromEntries(courses.map(c=>[c.id,c]));
+      const resultsView = results.map(r=>({
+        id: r.id,
+        studentId: sById[r.studentIdFk]?.studentId || '',
+        name: sById[r.studentIdFk]?.name || '',
+        courseCode: cById[r.courseIdFk]?.code || '',
+        semester: r.semester,
+        mark: r.mark,
+        grade: r.grade,
+        point: r.point,
+        credit: r.credit
+      }));
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(aoaFromObjects(resultsView, ['id','studentId','name','courseCode','semester','mark','grade','point','credit'])),
+        'Results'
+      );
+
+      // Student-Course Links
+      const scView = studentCourses.map(link => ({
+        id: link.id,
+        studentId: link.studentIdFk,
+        student: sById[link.studentIdFk]?.name || '',
+        courseId: link.courseIdFk,
+        courseCode: cById[link.courseIdFk]?.code || ''
+      }));
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(aoaFromObjects(scView, ['id','studentId','student','courseId','courseCode'])),
+        'StudentCourses'
+      );
+
+      // Agents
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(aoaFromObjects(agents, ['id','name','email','phone','agreementLink','agreement','status','terminatedAt','terminatedReason'])),
+        'Agents'
+      );
+
+      // Fee Groups
+      const feeGroupsView = feeGroups.map(fg=>({
+        id: fg.id,
+        name: fg.name,
+        program: programsMap[fg.programId] || '',
+        agent: agentsMap[fg.agentId] || '',
+        registrationFee: fg.registrationFee,
+        tuitionFee: fg.tuitionFee,
+        convocationFee: fg.convocationFee
+      }));
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(aoaFromObjects(feeGroupsView, ['id','name','program','agent','registrationFee','tuitionFee','convocationFee'])),
+        'FeeGroups'
+      );
+
+      // Invoices
+      const fgMapById = Object.fromEntries(feeGroups.map(fg=>[fg.id, fg.name]));
+      const invoicesView = invoices.map(inv=>({
+        id: inv.id,
+        studentId: sById[inv.studentIdFk]?.studentId || '',
+        name: sById[inv.studentIdFk]?.name || '',
+        feeGroup: inv.feeGroupId ? (fgMapById[inv.feeGroupId] || '') : '',
+        feeType: inv.feeType,
+        amount: inv.amount,
+        paid: inv.paid,
+        status: inv.status,
+        createdAt: inv.createdAt
+      }));
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(aoaFromObjects(invoicesView, ['id','studentId','name','feeGroup','feeType','amount','paid','status','createdAt'])),
+        'Invoices'
+      );
+
+      // Payments
+      const invMapById = Object.fromEntries(invoices.map(inv=>[inv.id, inv]));
+      const paymentsView = payments.map(p=>({
+        id: p.id,
+        studentId: sById[p.studentIdFk]?.studentId || '',
+        name: sById[p.studentIdFk]?.name || '',
+        feeGroup: p.feeGroupId ? (fgMapById[p.feeGroupId] || '') : '',
+        invoiceId: p.invoiceIdFk || '',
+        invoiceFee: p.invoiceIdFk ? (invMapById[p.invoiceIdFk]?.feeType || '') : '',
+        type: p.type,
+        amount: p.amount,
+        date: p.date,
+        note: p.note
+      }));
+      XLSX.utils.book_append_sheet(
+        wb,
+        XLSX.utils.aoa_to_sheet(aoaFromObjects(paymentsView, ['id','studentId','name','feeGroup','invoiceId','invoiceFee','type','amount','date','note'])),
+        'Payments'
+      );
+
+      saveWorkbook(wb, `pgsm_all_${new Date().toISOString().slice(0,10)}.xlsx`);
+    }
+
+    // ---------------------- IMPORT (Excel) ----------------------
+    async function handleImportExcel(file){
+      const status = document.getElementById('import-status');
+      status.textContent = 'Importing…';
+      const data = await file.arrayBuffer();
+      const wb = XLSX.read(data, {type:'array'});
+
+      function sheet(name){
+        const desired = wb.SheetNames.find(n => n.toLowerCase() === name.toLowerCase());
+        return desired ? wb.Sheets[desired] : null;
+      }
+
+      const added = { programs:0, students:0, courses:0, results:0, agents:0, feeGroups:0, invoices:0, payments:0 };
+
+      // PROGRAMS
+      const wsProg = sheet('Programs');
+      if (wsProg){
+        const rows = XLSX.utils.sheet_to_json(wsProg, {defval:''});
+        for (const r of rows){
+          if (!r.name) continue;
+          const durationStr = (r.duration ?? '').toString().trim();
+          const durationYears = durationStr ? Number(durationStr) : null;
+          const projectType = normalizeProjectType(r.projectType ?? r.projectComponent ?? r.project);
+          const rawLevel = (r.level || r.type || r.programTypeLevel || r.programType)?.toString().trim().toLowerCase();
+          const level = rawLevel === 'phd' ? 'PhD' : 'Master';
+          await db.programs.add({
+            name: (r.name || '').toString().trim(),
+            level,
+            mode: (r.mode || '').toString().trim(),
+            projectType,
+            duration: Number.isFinite(durationYears) ? durationYears : null
+          });
+          added.programs++;
+        }
+      }
+
+      // AGENTS
+      const wsAgents = sheet('Agents');
+      if (wsAgents){
+        const rows = XLSX.utils.sheet_to_json(wsAgents, {defval:''});
+        for (const r of rows){
+          const name = (r.name || '').toString().trim();
+          if (!name) continue;
+          const rawStatus = (r.status || 'Active').toString().trim().toLowerCase();
+          const status = rawStatus === 'terminated' ? 'Terminated' : 'Active';
+          await db.agents.add({
+            name,
+            email: (r.email || '').toString().trim(),
+            phone: (r.phone || '').toString().trim(),
+            agreement: (r.agreement || '').toString().trim(),
+            agreementLink: (r.agreementLink || r.link || '').toString().trim(),
+            status,
+            terminatedAt: status === 'Terminated' ? (r.terminatedAt || '').toString().trim() : '',
+            terminatedReason: status === 'Terminated' ? (r.terminatedReason || '').toString().trim() : ''
+          });
+          added.agents++;
+        }
+      }
+
+      // STUDENTS (with de-dup by studentId)
+      const wsStu = sheet('Students');
+      if (wsStu){
+        const rows = XLSX.utils.sheet_to_json(wsStu, {defval:''});
+        const pmap = Object.fromEntries((await db.programs.toArray()).map(p=>[p.name.trim(), p.id]));
+        const fgmap = Object.fromEntries((await db.feeGroups.toArray()).map(fg=>[(fg.name || '').toString().trim(), fg.id]));
+        for (const r of rows){
+          const name = (r.name || '').toString().trim();
+          if (!name) continue;
+
+          const studentId = (r.studentId || '').toString().trim();
+          let existing = null;
+          if (studentId){
+            existing = await db.students.where('studentId').equals(studentId).first();
+          }
+
+          const programName = (r.program || '').toString().trim();
+          const programId = programName && pmap[programName] ? pmap[programName] : null;
+          const feeGroupId = (r.feeGroup || '').toString().trim() ? fgmap[(r.feeGroup || '').toString().trim()] || null : null;
+          const paymentPlan = (r.paymentPlan || '').toString().trim() || 'lump';
+          const registrationDate = (r.registrationDate || '').toString().trim();
+
+          if (!existing){
+            const newId = await db.students.add({
+              studentId: studentId || undefined,
+              name: name,
+              email: (r.email || '').toString().trim(),
+              phone: (r.phone || '').toString().trim(),
+              intake: (r.intake || '').toString().trim(),
+              programId,
+              feeGroupId,
+              paymentPlan,
+              registrationDate,
+              status: (r.status || 'Active').toString().trim() || 'Active'
+            });
+            added.students++;
+            if (feeGroupId){
+              await ensureInvoicesForFeeGroup(newId, feeGroupId);
+            }
+          }
+        }
+      }
+
+      // COURSES
+      const wsCourse = sheet('Courses');
+      if (wsCourse){
+        const rows = XLSX.utils.sheet_to_json(wsCourse, {defval:''});
+        const pmap = Object.fromEntries((await db.programs.toArray()).map(p=>[(p.name || '').toString().trim().toLowerCase(), p.id]));
+        for (const r of rows){
+          const code = (r.code || '').toString().trim();
+          if (!code) continue;
+          const title = (r.title || '').toString().trim();
+          const credit = Number(r.credit) || 0;
+          const programName = (r.program || '').toString().trim().toLowerCase();
+          const programId = pmap[programName] || null;
+          if (!programId) continue;
+
+          // Simple dedup: skip if code already exists
+          const existing = await db.courses.where('code').equals(code).first();
+          if (existing) continue;
+
+          const newCourseId = await db.courses.add({ code, title, credit, programId });
+          await assignCourseToStudents(newCourseId, programId);
+          added.courses++;
+        }
+      }
+
+      // FEE GROUPS
+      const wsFG = sheet('FeeGroups');
+      if (wsFG){
+        const rows = XLSX.utils.sheet_to_json(wsFG, {defval:''});
+        const pmap = Object.fromEntries((await db.programs.toArray()).map(p=>[p.name.trim(), p.id]));
+        const amap = Object.fromEntries((await db.agents.toArray()).map(a=>[(a.name || '').toString().trim(), a.id]));
+        for (const r of rows){
+          const name = (r.name || '').toString().trim();
+          if (!name) continue;
+          const programId = pmap[(r.program || '').toString().trim()] || null;
+          const agentId = amap[(r.agent || '').toString().trim()] || null;
+          await db.feeGroups.add({
+            name,
+            programId,
+            agentId,
+            registrationFee: Number(r.registrationFee) || 0,
+            tuitionFee: Number(r.tuitionFee) || 0,
+            convocationFee: Number(r.convocationFee) || 0
+          });
+          added.feeGroups++;
+        }
+      }
+
+      // INVOICES (map student by studentId or name; fee group by name)
+      const wsInv = sheet('Invoices');
+      if (wsInv){
+        const rows = XLSX.utils.sheet_to_json(wsInv, {defval:''});
+        const students = await db.students.toArray();
+        const feeGroups = await db.feeGroups.toArray();
+        const sById = Object.fromEntries(students.map(s=>[(s.studentId || '').toString().trim(), s.id]));
+        const sByName = Object.fromEntries(students.map(s=>[(s.name || '').toString().trim(), s.id]));
+        const fgByName = Object.fromEntries(feeGroups.map(fg=>[(fg.name || '').toString().trim(), fg.id]));
+
+        for (const r of rows){
+          const studentIdFk = sById[(r.studentId || '').toString().trim()] ||
+                              sByName[(r.name || '').toString().trim()];
+          if (!studentIdFk) continue;
+          const feeGroupId = fgByName[(r.feeGroup || '').toString().trim()] || null;
+          const feeType = (r.feeType || '').toString().trim() || 'manual';
+          const amount = Number(r.amount);
+          if (isNaN(amount) || amount <= 0) continue;
+          const paid = Number(r.paid) || 0;
+          const status = (r.status || '').toString().trim() || statusFromPaid(amount, paid);
+          const createdAt = (r.createdAt || '').toString().trim() || new Date().toISOString().slice(0,10);
+          await db.invoices.add({
+            studentIdFk,
+            feeGroupId,
+            feeType,
+            amount,
+            paid,
+            status,
+            createdAt
+          });
+          added.invoices++;
+        }
+      }
+
+      // RESULTS (map student by studentId or name; course by courseCode)
+      const wsRes = sheet('Results');
+      if (wsRes){
+        const rows = XLSX.utils.sheet_to_json(wsRes, {defval:''});
+        const students = await db.students.toArray();
+        const courses = await db.courses.toArray();
+        const sById = Object.fromEntries(students.map(s=>[(s.studentId || '').toString().trim(), s.id]));
+        const sByName = Object.fromEntries(students.map(s=>[(s.name || '').toString().trim(), s.id]));
+        const cByCode = Object.fromEntries(courses.map(c=>[c.code.trim(), c.id]));
+
+        for (const r of rows){
+          const sem = (r.semester || '').toString().trim();
+          const mark = Number(r.mark);
+          const courseIdFk = cByCode[(r.courseCode || '').toString().trim()];
+          let studentIdFk = sById[(r.studentId || '').toString().trim()] ||
+                            sByName[(r.name || '').toString().trim()];
+
+          if (!studentIdFk || !courseIdFk || !sem || isNaN(mark)) continue; // skip bad rows
+
+          const course = await db.courses.get(courseIdFk);
+          const g = gradeFromMark(mark);
+          await db.results.add({
+            studentIdFk,
+            courseIdFk,
+            semester: sem,
+            mark,
+            grade: g.grade,
+            point: g.point,
+            credit: Number(course?.credit) || 0
+          });
+          added.results++;
+        }
+      }
+
+      // PAYMENTS (map student by studentId or name; fee group by name)
+      const wsPay = sheet('Payments');
+      if (wsPay){
+        const rows = XLSX.utils.sheet_to_json(wsPay, {defval:''});
+        const students = await db.students.toArray();
+        const feeGroups = await db.feeGroups.toArray();
+        const invoices = await db.invoices.toArray();
+        const sById = Object.fromEntries(students.map(s=>[(s.studentId || '').toString().trim(), s.id]));
+        const sByName = Object.fromEntries(students.map(s=>[(s.name || '').toString().trim(), s.id]));
+        const fgByName = Object.fromEntries(feeGroups.map(fg=>[(fg.name || '').toString().trim(), fg.id]));
+        const invById = Object.fromEntries(invoices.map(inv=>[inv.id, inv]));
+        const invByKey = {};
+        invoices.forEach(inv=>{
+          const key = `${inv.studentIdFk}::${inv.feeGroupId||''}::${(inv.feeType||'').toString().toLowerCase()}`;
+          invByKey[key] = inv;
+        });
+
+        for (const r of rows){
+          const studentIdFk = sById[(r.studentId || '').toString().trim()] ||
+                              sByName[(r.name || '').toString().trim()];
+          if (!studentIdFk) continue;
+          const typeRaw = (r.type || 'debit').toString().toLowerCase();
+          const type = ['debit','credit','discount'].includes(typeRaw) ? typeRaw : 'debit';
+          const amount = Number(r.amount);
+          if (isNaN(amount) || amount < 0) continue;
+          const feeGroupId = fgByName[(r.feeGroup || '').toString().trim()] || null;
+          const invoiceIdRaw = Number(r.invoiceId);
+          const invoiceFee = (r.invoiceFee || '').toString().trim().toLowerCase();
+          let invoiceIdFk = !isNaN(invoiceIdRaw) && invById[invoiceIdRaw] ? invoiceIdRaw : null;
+          if (!invoiceIdFk && invoiceFee){
+            const key = `${studentIdFk}::${feeGroupId||''}::${invoiceFee}`;
+            invoiceIdFk = invByKey[key]?.id || null;
+          }
+          const date = (r.date || '').toString().trim() || new Date().toISOString().slice(0,10);
+          if (invoiceIdFk && type !== 'debit'){
+            const inv = await db.invoices.get(invoiceIdFk);
+            if (inv){
+              const newPaid = Math.min((Number(inv.paid)||0) + amount, Number(inv.amount)||0);
+              const status = statusFromPaid(inv.amount || 0, newPaid);
+              await db.invoices.update(inv.id, { paid: newPaid, status });
+            }
+          }
+          // If type is debit and there is no invoice, create one as manual
+          if (type === 'debit' && !invoiceIdFk){
+            const createdId = await db.invoices.add({
+              studentIdFk,
+              feeGroupId,
+              feeType: invoiceFee || 'manual',
+              amount,
+              paid: 0,
+              status: 'open',
+              createdAt: date
+            });
+            invoiceIdFk = createdId;
+            added.invoices++;
+          }
+          await db.payments.add({
+            studentIdFk,
+            feeGroupId,
+            invoiceIdFk,
+            type,
+            amount,
+            note: (r.note || '').toString().trim(),
+            date
+          });
+          added.payments++;
+        }
+      }
+
+      status.textContent = `Imported - Programs: ${added.programs}, Students: ${added.students}, Courses: ${added.courses}, Results: ${added.results}, Agents: ${added.agents}, FeeGroups: ${added.feeGroups}, Invoices: ${added.invoices}, Payments: ${added.payments}`;
+      // Clear file input for next import
+      const importInput = document.getElementById('import-file');
+      if (importInput) importInput.value = '';
+
+      await Promise.all([
+        renderPrograms(),
+        renderStudents(),
+        renderCourses(),
+        renderResults(),
+        renderAgents(),
+        renderFeeGroups(),
+        renderPayments(),
+        loadProgramsIntoSelects()
+      ]);
+    }
+
+    // ---------------------- BACKUP (ZIP) ----------------------
+    async function exportBackupZip(){
+      const zip = new JSZip();
+      const [programs, students, courses, results, agents, feeGroups, payments, invoices, studentCourses] = await Promise.all([
+        db.programs.toArray(),
+        db.students.toArray(),
+        db.courses.toArray(),
+        db.results.toArray(),
+        db.agents.toArray(),
+        db.feeGroups.toArray(),
+        db.payments.toArray(),
+        db.invoices.toArray(),
+        db.studentCourses.toArray()
+      ]);
+      const meta = { exportedAt: new Date().toISOString(), schemaVersion: 5 };
+      zip.file('meta.json', JSON.stringify(meta, null, 2));
+      zip.file('programs.json', JSON.stringify(programs));
+      zip.file('students.json', JSON.stringify(students));
+      zip.file('courses.json', JSON.stringify(courses));
+      zip.file('results.json', JSON.stringify(results));
+      zip.file('agents.json', JSON.stringify(agents));
+      zip.file('feeGroups.json', JSON.stringify(feeGroups));
+      zip.file('payments.json', JSON.stringify(payments));
+      zip.file('invoices.json', JSON.stringify(invoices));
+      zip.file('studentCourses.json', JSON.stringify(studentCourses));
+      const blob = await zip.generateAsync({type:'blob'});
+      saveAs(blob, `pgsm_backup_${new Date().toISOString().replace(/[:T]/g,'-').slice(0,19)}.zip`);
+    }
+
+    async function restoreBackupZip(file){
+      const status = document.getElementById('restore-status');
+      status.textContent = 'Reading backup…';
+      const data = await file.arrayBuffer();
+      let zip;
+      try {
+        zip = await JSZip.loadAsync(data);
+      } catch (err) {
+        status.textContent = 'Invalid ZIP file.';
+        return;
+      }
+
+      const requiredFiles = ['meta.json','programs.json','students.json','courses.json','results.json'];
+      const optionalFiles = ['agents.json','feeGroups.json','payments.json','invoices.json','studentCourses.json'];
+      for (const f of requiredFiles){
+        if (!zip.file(f)){
+          status.textContent = `Invalid backup: missing ${f}`;
+          return;
+        }
+      }
+
+      const meta = JSON.parse(await zip.file('meta.json').async('string'));
+      const programs = JSON.parse(await zip.file('programs.json').async('string'));
+      const students = JSON.parse(await zip.file('students.json').async('string'));
+      const courses = JSON.parse(await zip.file('courses.json').async('string'));
+      const results = JSON.parse(await zip.file('results.json').async('string'));
+      const agents = zip.file('agents.json') ? JSON.parse(await zip.file('agents.json').async('string')) : [];
+      const feeGroups = zip.file('feeGroups.json') ? JSON.parse(await zip.file('feeGroups.json').async('string')) : [];
+      const payments = zip.file('payments.json') ? JSON.parse(await zip.file('payments.json').async('string')) : [];
+      const invoices = zip.file('invoices.json') ? JSON.parse(await zip.file('invoices.json').async('string')) : [];
+      const studentCourses = zip.file('studentCourses.json') ? JSON.parse(await zip.file('studentCourses.json').async('string')) : [];
+
+      if (!confirm('Restore will REPLACE existing data. Continue?')){
+        status.textContent = 'Cancelled.';
+        return;
+      }
+
+      await db.transaction('rw', db.programs, db.students, db.courses, db.results, db.agents, db.feeGroups, db.payments, db.invoices, db.studentCourses, async () => {
+        await db.programs.clear();
+        await db.students.clear();
+        await db.courses.clear();
+        await db.results.clear();
+        await db.agents.clear();
+        await db.feeGroups.clear();
+        await db.payments.clear();
+        await db.invoices.clear();
+        await db.studentCourses.clear();
+        await db.programs.bulkAdd(programs);
+        await db.students.bulkAdd(students);
+        await db.courses.bulkAdd(courses);
+        await db.results.bulkAdd(results);
+        if (agents.length) await db.agents.bulkAdd(agents);
+        if (feeGroups.length) await db.feeGroups.bulkAdd(feeGroups);
+        if (payments.length) await db.payments.bulkAdd(payments);
+        if (invoices.length) await db.invoices.bulkAdd(invoices);
+        if (studentCourses.length) await db.studentCourses.bulkAdd(studentCourses);
+      });
+      status.textContent = `Restored backup (schema v${meta.schemaVersion}).`;
+
+      await Promise.all([
+        renderPrograms(),
+        renderStudents(),
+        renderCourses(),
+        renderResults(),
+        renderAgents(),
+        renderFeeGroups(),
+        renderPayments(),
+        loadProgramsIntoSelects()
+      ]);
+    }
+
+    // ---------------------- Button wiring ----------------------
+    document.getElementById('export-students').addEventListener('click', async () => {
+      const programs = await db.programs.toArray();
+      const pmap = Object.fromEntries(programs.map(p=>[p.id,p.name]));
+      const students = (await db.students.toArray()).map(s=>({
+        id:s.id,
+        studentId:s.studentId||'',
+        name:s.name,
+        email:s.email||'',
+        phone:s.phone||'',
+        intake:s.intake||'',
+        program:pmap[s.programId]||'',
+        status:s.status||'Active',
+        paymentPlan:s.paymentPlan||'lump',
+        registrationDate:s.registrationDate||''
+      }));
+      exportSheet('Students', students, ['id','studentId','name','email','phone','intake','program','status','paymentPlan','registrationDate']);
+    });
+
+    document.getElementById('export-programs').addEventListener('click', async () => {
+      const programs = await db.programs.toArray();
+      exportSheet('Programs', programs, ['id','name','level','mode','projectType','duration']);
+    });
+
+    document.getElementById('export-courses').addEventListener('click', async () => {
+      const programs = await db.programs.toArray();
+      const pmap = Object.fromEntries(programs.map(p=>[p.id,p.name]));
+      const courses = (await db.courses.toArray()).map(c=>({
+        id:c.id,
+        code:c.code,
+        title:c.title,
+        credit:c.credit,
+        program:pmap[c.programId]||''
+      }));
+      exportSheet('Courses', courses, ['id','code','title','credit','program']);
+    });
+
+    document.getElementById('export-results').addEventListener('click', async () => {
+      const [students, courses, results] = await Promise.all([
+        db.students.toArray(), db.courses.toArray(), db.results.toArray()
+      ]);
+      const sById = Object.fromEntries(students.map(s=>[s.id,s]));
+      const cById = Object.fromEntries(courses.map(c=>[c.id,c]));
+      const view = results.map(r=>({
+        id:r.id,
+        studentId:sById[r.studentIdFk]?.studentId||'',
+        name:sById[r.studentIdFk]?.name||'',
+        courseCode:cById[r.courseIdFk]?.code||'',
+        semester:r.semester,
+        mark:r.mark,
+        grade:r.grade,
+        point:r.point,
+        credit:r.credit
+      }));
+      exportSheet('Results', view, ['id','studentId','name','courseCode','semester','mark','grade','point','credit']);
+    });
+
+    document.getElementById('export-agents').addEventListener('click', async () => {
+      const agents = await db.agents.toArray();
+      const view = agents.map(a=>({
+        id:a.id,
+        name:a.name,
+        email:a.email,
+        phone:a.phone,
+        agreementLink:a.agreementLink,
+        agreement:a.agreement,
+        status:a.status,
+        terminatedAt:a.terminatedAt,
+        terminatedReason:a.terminatedReason
+      }));
+      exportSheet('Agents', view, ['id','name','email','phone','agreementLink','agreement','status','terminatedAt','terminatedReason']);
+    });
+
+    document.getElementById('export-feegroups').addEventListener('click', async () => {
+      const [feeGroups, programs, agents] = await Promise.all([
+        db.feeGroups.toArray(), db.programs.toArray(), db.agents.toArray()
+      ]);
+      const pmap = Object.fromEntries(programs.map(p=>[p.id,p.name]));
+      const amap = Object.fromEntries(agents.map(a=>[a.id,a.name]));
+      const view = feeGroups.map(fg=>({
+        id:fg.id,
+        name:fg.name,
+        program:pmap[fg.programId]||'',
+        agent:amap[fg.agentId]||'',
+        registrationFee:fg.registrationFee,
+        tuitionFee:fg.tuitionFee,
+        convocationFee:fg.convocationFee
+      }));
+      exportSheet('FeeGroups', view, ['id','name','program','agent','registrationFee','tuitionFee','convocationFee']);
+    });
+
+    document.getElementById('export-payments').addEventListener('click', async () => {
+      const [allPayments, students, feeGroups] = await Promise.all([
+        db.payments.toArray(), db.students.toArray(), db.feeGroups.toArray()
+      ]);
+      const payments = allPayments.filter(p => !p.deleted);
+      const sById = Object.fromEntries(students.map(s=>[s.id,s]));
+      const fgById = Object.fromEntries(feeGroups.map(fg=>[fg.id, fg.name]));
+      const view = payments.map(p=>({
+        id:p.id,
+        studentId:sById[p.studentIdFk]?.studentId||'',
+        name:sById[p.studentIdFk]?.name||'',
+        feeGroup:p.feeGroupId ? (fgById[p.feeGroupId]||'') : '',
+        invoiceId:p.invoiceIdFk||'',
+        type:p.type,
+        amount:p.amount,
+        date:p.date,
+        note:p.note,
+        reason:p.lastChangeReason||''
+      }));
+      exportSheet('Payments', view, ['id','studentId','name','feeGroup','invoiceId','type','amount','date','note','reason']);
+    });
+
+    document.getElementById('export-invoices').addEventListener('click', async () => {
+      const [invoices, students, feeGroups] = await Promise.all([
+        db.invoices.toArray(), db.students.toArray(), db.feeGroups.toArray()
+      ]);
+      const sById = Object.fromEntries(students.map(s=>[s.id,s]));
+      const fgById = Object.fromEntries(feeGroups.map(fg=>[fg.id, fg.name]));
+      const view = invoices.map(inv=>({
+        id:inv.id,
+        studentId:sById[inv.studentIdFk]?.studentId||'',
+        name:sById[inv.studentIdFk]?.name||'',
+        feeGroup:inv.feeGroupId ? (fgById[inv.feeGroupId]||'') : '',
+        feeType:inv.feeType,
+        amount:inv.amount,
+        paid:inv.paid,
+        status:inv.status,
+        createdAt:inv.createdAt
+      }));
+      exportSheet('Invoices', view, ['id','studentId','name','feeGroup','feeType','amount','paid','status','createdAt']);
+    });
+
+    document.getElementById('export-all-xlsx').addEventListener('click', exportAllWorkbook);
+
+    document.getElementById('btn-import').addEventListener('click', async () => {
+      const f = document.getElementById('import-file').files[0];
+      if (!f) return alert('Choose an Excel file first.');
+      await handleImportExcel(f);
+    });
+
+    document.getElementById('btn-backup').addEventListener('click', exportBackupZip);
+    document.getElementById('btn-restore').addEventListener('click', async () => {
+      const f = document.getElementById('restore-file').files[0];
+      if (!f) return alert('Choose a .zip backup file first.');
+      await restoreBackupZip(f);
+    });
+    // ---------------------- Init ----------------------
+    (async function init(){
+      await renderPrograms();
+      await renderStudents();
+      await renderCourses();
+      await renderResults();
+      await renderAgents();
+      await renderFeeGroups();
+      await renderPayments();
+      await renderLedgerOverview();
+      await loadProgramsIntoSelects();
+    })();
+  </script>
+  <footer class="mt-10 text-center text-xs text-gray-500">
+    Developed by MFR 2025
+  </footer>
+</body>
+</html>
