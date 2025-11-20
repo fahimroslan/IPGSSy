@@ -20,10 +20,9 @@
     <header class="mb-6">
       <h1 class="text-2xl font-bold">Postgraduate Student Manager</h1>
       <p class="text-sm text-gray-600">Stage 3 · Excel Import/Export & Full Backup</p>
-    </header>
-
+</header>
     <!-- Tabs -->
-    <div class="mb-4 flex gap-2 flex-wrap">
+    <div class="mb-4 flex gap-2 flex-wrap items-center">
       <button class="tab px-3 py-2 rounded bg-blue-600 text-white" data-tab="dashboard">Dashboard</button>
       <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="students">Students</button>
       <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="profile">Student Profile</button>
@@ -33,6 +32,9 @@
       <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="finance">Agent</button>
       <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="ledger">Finance</button>
       <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="import">Import/Export</button>
+      <button id="btn-backup-top" class="ml-auto bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded px-3 py-2 shadow">
+        Export Backup (.zip)
+      </button>
     </div>
 
     <!-- DASHBOARD -->
@@ -4331,6 +4333,10 @@
     });
 
     document.getElementById('btn-backup').addEventListener('click', exportBackupZip);
+    const backupTopBtn = document.getElementById('btn-backup-top');
+    if (backupTopBtn){
+      backupTopBtn.addEventListener('click', exportBackupZip);
+    }
     document.getElementById('btn-restore').addEventListener('click', async () => {
       const f = document.getElementById('restore-file').files[0];
       if (!f) return alert('Choose a .zip backup file first.');
