@@ -26,6 +26,7 @@
     <div class="mb-4 flex gap-2 flex-wrap">
       <button class="tab px-3 py-2 rounded bg-blue-600 text-white" data-tab="dashboard">Dashboard</button>
       <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="students">Students</button>
+      <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="profile">Student Profile</button>
       <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="programs">Programs</button>
       <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="results">Results</button>
       <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="reports">Student Results</button>
@@ -102,6 +103,171 @@
               <tbody id="dashboard-program-rows"></tbody>
             </table>
             <p class="text-xs text-gray-500 mt-3 hidden" id="dashboard-program-empty">No programs found.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STUDENT PROFILE -->
+    <section id="panel-profile" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded shadow">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div>
+            <h2 class="font-semibold">Student Profile</h2>
+            <p class="text-sm text-gray-600">Select a student to view their profile, ledger, and academic progress.</p>
+          </div>
+          <div class="flex items-center gap-2">
+            <select class="border rounded px-3 py-2 w-64" id="profile-student">
+              <option value="">Select Student</option>
+            </select>
+            <button id="profile-refresh" class="px-3 py-2 rounded bg-gray-200 text-gray-700">Refresh</button>
+          </div>
+        </div>
+        <p class="text-sm text-gray-500 mt-3" id="profile-empty">Select a student to begin.</p>
+      </div>
+
+      <div id="profile-content" class="hidden space-y-4">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="bg-white rounded shadow p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs uppercase text-gray-500 tracking-wide">Student</p>
+                <p class="text-2xl font-semibold mt-1" id="profile-name">-</p>
+              </div>
+              <span id="profile-status" class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">-</span>
+            </div>
+            <dl class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-4">
+              <div>
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Program</dt>
+                <dd class="font-medium mt-1" id="profile-program">-</dd>
+              </div>
+              <div>
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Fee Group</dt>
+                <dd class="font-medium mt-1" id="profile-feegroup">-</dd>
+              </div>
+              <div>
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Agent</dt>
+                <dd class="font-medium mt-1" id="profile-agent">-</dd>
+              </div>
+              <div>
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Payment Plan</dt>
+                <dd class="font-medium mt-1" id="profile-payment-plan">-</dd>
+              </div>
+              <div>
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Intake</dt>
+                <dd class="font-medium mt-1" id="profile-intake">-</dd>
+              </div>
+              <div>
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Registration Date</dt>
+                <dd class="font-medium mt-1" id="profile-registration">-</dd>
+              </div>
+            </dl>
+            <dl class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-4">
+              <div>
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Email</dt>
+                <dd class="font-medium mt-1 break-all" id="profile-email">-</dd>
+              </div>
+              <div>
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Phone</dt>
+                <dd class="font-medium mt-1" id="profile-phone">-</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div class="bg-white rounded shadow p-4">
+            <h3 class="font-semibold mb-3">Ledger Summary</h3>
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div class="bg-gray-50 rounded p-3">
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Total Billed</dt>
+                <dd class="text-xl font-semibold mt-1" id="profile-ledger-billed">RM 0.00</dd>
+              </div>
+              <div class="bg-gray-50 rounded p-3">
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Collected</dt>
+                <dd class="text-xl font-semibold mt-1 text-emerald-600" id="profile-ledger-collected">RM 0.00</dd>
+              </div>
+              <div class="bg-gray-50 rounded p-3">
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Outstanding</dt>
+                <dd class="text-xl font-semibold mt-1 text-amber-600" id="profile-ledger-outstanding">RM 0.00</dd>
+              </div>
+              <div class="bg-gray-50 rounded p-3">
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Overdue</dt>
+                <dd class="text-xl font-semibold mt-1 text-red-600" id="profile-ledger-overdue">RM 0.00</dd>
+              </div>
+              <div class="bg-gray-50 rounded p-3 sm:col-span-2">
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Discounts</dt>
+                <dd class="text-xl font-semibold mt-1" id="profile-ledger-discount">RM 0.00</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+
+        <div class="bg-white rounded shadow p-4">
+          <h3 class="font-semibold mb-3">Ledger Details</h3>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div>
+              <h4 class="text-sm font-semibold text-gray-600 mb-2">Invoices</h4>
+              <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                  <thead>
+                    <tr class="text-left border-b">
+                      <th class="py-2 pr-4">Fee</th>
+                      <th class="py-2 pr-4">Amount</th>
+                      <th class="py-2 pr-4">Paid</th>
+                      <th class="py-2 pr-4">Status</th>
+                      <th class="py-2 pr-4">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody id="profile-invoice-rows"></tbody>
+                </table>
+              </div>
+              <p class="text-xs text-gray-500 mt-2 hidden" id="profile-invoice-empty">No invoices yet.</p>
+            </div>
+            <div>
+              <h4 class="text-sm font-semibold text-gray-600 mb-2">Payments / Adjustments</h4>
+              <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                  <thead>
+                    <tr class="text-left border-b">
+                      <th class="py-2 pr-4">Date</th>
+                      <th class="py-2 pr-4">Type</th>
+                      <th class="py-2 pr-4">Amount</th>
+                      <th class="py-2 pr-4">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody id="profile-payment-rows"></tbody>
+                </table>
+              </div>
+              <p class="text-xs text-gray-500 mt-2 hidden" id="profile-payment-empty">No payments recorded.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded shadow p-4">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+            <div>
+              <h3 class="font-semibold">Academic Progress</h3>
+              <p class="text-sm text-gray-600">Results overview for all completed courses.</p>
+            </div>
+            <div class="text-sm text-gray-700">
+              <span class="font-semibold">GPA:</span> <span id="profile-gpa">0.00</span>
+              <span class="ml-4 font-semibold">Credits:</span> <span id="profile-credits">0</span>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead>
+                <tr class="text-left border-b">
+                  <th class="py-2 pr-4">Course</th>
+                  <th class="py-2 pr-4">Semester</th>
+                  <th class="py-2 pr-4">Mark</th>
+                  <th class="py-2 pr-4">Grade</th>
+                  <th class="py-2 pr-4">Point</th>
+                  <th class="py-2 pr-4">Credit</th>
+                </tr>
+              </thead>
+              <tbody id="profile-result-rows"></tbody>
+            </table>
+            <p class="text-xs text-gray-500 mt-3 hidden" id="profile-result-empty">No results available yet.</p>
           </div>
         </div>
       </div>
@@ -1054,6 +1220,7 @@
     const panels = {
       dashboard: document.getElementById('panel-dashboard'),
       students: document.getElementById('panel-students'),
+      profile: document.getElementById('panel-profile'),
       programs: document.getElementById('panel-programs'),
       results:  document.getElementById('panel-results'),
       reports:  document.getElementById('panel-reports'),
@@ -1111,8 +1278,10 @@
       if (repSel){ repSel.innerHTML = '<option value="">Select Student</option>'; }
       const paymentStuSel = document.getElementById('payment-student');
       const ledgerStuSel = document.getElementById('ledger-student');
+      const profileStuSel = document.getElementById('profile-student');
       if (paymentStuSel){ paymentStuSel.innerHTML = '<option value="">Select Student</option>'; }
       if (ledgerStuSel){ ledgerStuSel.innerHTML = '<option value="">Select Student</option>'; }
+      if (profileStuSel){ profileStuSel.innerHTML = '<option value="">Select Student</option>'; }
       for (const s of students){
         if (rStuSel){
           const o1 = document.createElement('option');
@@ -1138,6 +1307,15 @@
           o4.textContent = s.name;
           ledgerStuSel.appendChild(o4);
         }
+        if (profileStuSel){
+          const o5 = document.createElement('option');
+          o5.value = s.id;
+          o5.textContent = s.name;
+          profileStuSel.appendChild(o5);
+        }
+      }
+      if (profileStuSel){
+        profileStuSel.value = currentProfileStudentId ? String(currentProfileStudentId) : '';
       }
 
       await populateResultCourses(rStuSel?.value || '');
@@ -1272,6 +1450,7 @@
         tbody.appendChild(detailTr);
       });
       await loadProgramsIntoSelects();
+      await refreshStudentProfileIfActive();
     }
 
     async function renderStudents(){
@@ -1287,7 +1466,11 @@
         tr.innerHTML = `
           <td class="py-2 pr-4">${i+1}</td>
           <td class="py-2 pr-4">${s.studentId || '-'}</td>
-          <td class="py-2 pr-4">${s.name || ''}</td>
+          <td class="py-2 pr-4">
+            <button class="text-left text-blue-600 hover:underline" data-action="view-profile" data-id="${s.id}">
+              ${s.name || ''}
+            </button>
+          </td>
           <td class="py-2 pr-4">${pmap[s.programId] || '-'}</td>
           <td class="py-2 pr-4">${s.intake || '-'}</td>
           <td class="py-2 pr-4">${s.status || '-'}</td>
@@ -1299,6 +1482,7 @@
         tbody.appendChild(tr);
       });
       await loadProgramsIntoSelects();
+      await refreshStudentProfileIfActive();
     }
 
     async function renderCourses(){
@@ -1329,6 +1513,7 @@
         tbody.appendChild(tr);
       });
       await loadProgramsIntoSelects();
+      await refreshStudentProfileIfActive();
     }
 
     async function renderResults(){
@@ -1358,6 +1543,7 @@
         `;
         tbody.appendChild(tr);
       });
+      await refreshStudentProfileIfActive();
     }
 
     async function renderAgents(){
@@ -1399,6 +1585,7 @@
         tbody.appendChild(tr);
       });
       await loadAgentsIntoSelects();
+      await refreshStudentProfileIfActive();
     }
 
     async function renderFeeGroups(){
@@ -1433,6 +1620,7 @@
       await loadFeeGroupsIntoSelects();
       await loadAgentsIntoSelects();
       updateInternalMarketingTemplates(feeGroups, agents, programs);
+      await refreshStudentProfileIfActive();
     }
 
     async function renderPayments(){
@@ -1668,6 +1856,218 @@
       }
     }
 
+    async function renderStudentProfile(studentId){
+      const content = document.getElementById('profile-content');
+      const emptyState = document.getElementById('profile-empty');
+      const select = document.getElementById('profile-student');
+      const sid = Number(studentId);
+      if (!sid){
+        if (select && !select.value){
+          currentProfileStudentId = null;
+        }
+        if (emptyState){
+          emptyState.textContent = 'Select a student to begin.';
+          emptyState.classList.remove('hidden');
+        }
+        if (content){
+          content.classList.add('hidden');
+        }
+        return;
+      }
+      if (select && select.value !== String(sid)){
+        select.value = String(sid);
+      }
+      const student = await db.students.get(sid);
+      if (!student){
+        currentProfileStudentId = null;
+        if (emptyState){
+          emptyState.textContent = 'Student not found.';
+          emptyState.classList.remove('hidden');
+        }
+        if (content){
+          content.classList.add('hidden');
+        }
+        return;
+      }
+      currentProfileStudentId = sid;
+      const [program, feeGroup] = await Promise.all([
+        student.programId ? db.programs.get(student.programId) : null,
+        student.feeGroupId ? db.feeGroups.get(student.feeGroupId) : null
+      ]);
+      const agent = feeGroup?.agentId ? await db.agents.get(feeGroup.agentId) : null;
+      const [invoices, paymentsRaw, results, courses] = await Promise.all([
+        db.invoices.where('studentIdFk').equals(sid).toArray(),
+        db.payments.where('studentIdFk').equals(sid).toArray(),
+        db.results.where('studentIdFk').equals(sid).toArray(),
+        db.courses.toArray()
+      ]);
+      const payments = paymentsRaw.filter(p => !p.deleted);
+      const billed = invoices.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+      const collected = invoices.reduce((sum, inv) => sum + Math.min(Number(inv.paid) || 0, Number(inv.amount) || 0), 0);
+      const outstanding = invoices.reduce((sum, inv) => sum + calculateInvoiceBalance(inv), 0);
+      const overdue = invoices.reduce((sum, inv) => sum + (isInvoiceOverdue(inv) ? calculateInvoiceBalance(inv) : 0), 0);
+      const discountTotal = payments.reduce((sum, p) => sum + ((p.type || '').toLowerCase() === 'discount' ? (Number(p.amount) || 0) : 0), 0);
+
+      const formatCurrency = (value) => `RM ${formatMoney(value)}`;
+      const infoMap = {
+        'profile-name': student.name || '-',
+        'profile-status': student.status || 'N/A',
+        'profile-program': program ? `${program.name}${program.mqaCode ? ` (${program.mqaCode})` : ''}` : '-',
+        'profile-feegroup': feeGroup ? `${feeGroup.name} (${formatFeeGroupCode(feeGroup.agentId, feeGroup.sequence)})` : '-',
+        'profile-agent': agent ? `${agent.name || '-'} (${getAgentTypeLabel(agent.type)})` : '-',
+        'profile-payment-plan': (student.paymentPlan || 'lump').replace(/^\w/, c => c.toUpperCase()),
+        'profile-intake': student.intake || '-',
+        'profile-registration': student.registrationDate || '-',
+        'profile-email': student.email || '-',
+        'profile-phone': student.phone || '-'
+      };
+      Object.entries(infoMap).forEach(([id, value]) => {
+        const el = document.getElementById(id);
+        if (el){
+          el.textContent = value || '-';
+        }
+      });
+      const statusEl = document.getElementById('profile-status');
+      if (statusEl){
+        statusEl.className = 'text-xs px-2 py-1 rounded font-semibold';
+        const normalizedStatus = (student.status || 'Active').toLowerCase();
+        if (normalizedStatus === 'active'){
+          statusEl.classList.add('bg-emerald-100', 'text-emerald-700');
+        } else if (normalizedStatus === 'defer'){
+          statusEl.classList.add('bg-amber-100', 'text-amber-700');
+        } else {
+          statusEl.classList.add('bg-red-100', 'text-red-700');
+        }
+        statusEl.textContent = student.status || 'Status';
+      }
+      const ledgerMap = {
+        'profile-ledger-billed': formatCurrency(billed),
+        'profile-ledger-collected': formatCurrency(collected),
+        'profile-ledger-outstanding': formatCurrency(outstanding),
+        'profile-ledger-overdue': formatCurrency(overdue),
+        'profile-ledger-discount': formatCurrency(discountTotal)
+      };
+      Object.entries(ledgerMap).forEach(([id, value]) => {
+        const el = document.getElementById(id);
+        if (el) el.textContent = value;
+      });
+
+      const invoiceRows = document.getElementById('profile-invoice-rows');
+      const invoiceEmpty = document.getElementById('profile-invoice-empty');
+      if (invoiceRows){
+        invoiceRows.innerHTML = '';
+        if (!invoices.length){
+          if (invoiceEmpty) invoiceEmpty.classList.remove('hidden');
+        } else {
+          if (invoiceEmpty) invoiceEmpty.classList.add('hidden');
+          invoices
+            .slice()
+            .sort((a,b)=> (a.createdAt || '').localeCompare(b.createdAt || ''))
+            .forEach(inv => {
+              const tr = document.createElement('tr');
+              tr.innerHTML = `
+                <td class="py-2 pr-4">${(inv.feeType || '').toString().toUpperCase()}</td>
+                <td class="py-2 pr-4">${formatCurrency(Number(inv.amount)||0)}</td>
+                <td class="py-2 pr-4">${formatCurrency(Number(inv.paid)||0)}</td>
+                <td class="py-2 pr-4 capitalize">${inv.status || '-'}</td>
+                <td class="py-2 pr-4">${inv.createdAt || '-'}</td>
+              `;
+              invoiceRows.appendChild(tr);
+            });
+        }
+      }
+
+      const invoiceMap = new Map(invoices.map(inv => [inv.id, inv]));
+      const paymentRows = document.getElementById('profile-payment-rows');
+      const paymentEmpty = document.getElementById('profile-payment-empty');
+      if (paymentRows){
+        paymentRows.innerHTML = '';
+        if (!payments.length){
+          if (paymentEmpty) paymentEmpty.classList.remove('hidden');
+        } else {
+          if (paymentEmpty) paymentEmpty.classList.add('hidden');
+          payments
+            .slice()
+            .sort((a,b)=> (b.date || '').localeCompare(a.date || ''))
+            .forEach(p => {
+              const type = (p.type || '').toString().toLowerCase();
+              const amount = Number(p.amount) || 0;
+              const label = type ? type.charAt(0).toUpperCase() + type.slice(1) : '-';
+              const invoice = p.invoiceIdFk ? invoiceMap.get(p.invoiceIdFk) : null;
+              const detailBits = [];
+              if (invoice && invoice.feeType){
+                detailBits.push(`Invoice: ${invoice.feeType.toUpperCase()}`);
+              }
+              if (p.note){
+                detailBits.push(p.note);
+              }
+              if (p.lastChangeReason){
+                detailBits.push(`Reason: ${p.lastChangeReason}`);
+              }
+              const detailText = detailBits.join(' | ') || '-';
+              const tr = document.createElement('tr');
+              tr.innerHTML = `
+                <td class="py-2 pr-4">${p.date || '-'}</td>
+                <td class="py-2 pr-4">${label}</td>
+                <td class="py-2 pr-4 ${type === 'credit' ? 'text-emerald-600' : type === 'discount' ? 'text-amber-600' : ''}">
+                  ${formatCurrency(amount)}
+                </td>
+                <td class="py-2 pr-4">${detailText}</td>
+              `;
+              paymentRows.appendChild(tr);
+            });
+        }
+      }
+
+      const courseMap = Object.fromEntries(courses.map(c => [c.id, c]));
+      const resultsBody = document.getElementById('profile-result-rows');
+      const resultsEmpty = document.getElementById('profile-result-empty');
+      const totalCredits = results.reduce((sum, r) => sum + (Number(r.credit) || 0), 0);
+      const totalGradePoints = results.reduce((sum, r) => sum + ((Number(r.point) || 0) * (Number(r.credit) || 0)), 0);
+      const gpa = totalCredits ? totalGradePoints / totalCredits : 0;
+      const gpaEl = document.getElementById('profile-gpa');
+      const creditsEl = document.getElementById('profile-credits');
+      if (gpaEl) gpaEl.textContent = gpa.toFixed(2);
+      if (creditsEl) creditsEl.textContent = totalCredits.toString();
+      if (resultsBody){
+        resultsBody.innerHTML = '';
+        if (!results.length){
+          if (resultsEmpty) resultsEmpty.classList.remove('hidden');
+        } else {
+          if (resultsEmpty) resultsEmpty.classList.add('hidden');
+          results
+            .slice()
+            .sort((a,b)=> (a.semester || '').localeCompare(b.semester || ''))
+            .forEach(res => {
+              const course = courseMap[res.courseIdFk];
+              const tr = document.createElement('tr');
+              tr.innerHTML = `
+                <td class="py-2 pr-4">${course ? `${course.code} — ${course.title}` : '-'}</td>
+                <td class="py-2 pr-4">${res.semester || '-'}</td>
+                <td class="py-2 pr-4">${res.mark ?? '-'}</td>
+                <td class="py-2 pr-4">${res.grade || '-'}</td>
+                <td class="py-2 pr-4">${Number(res.point || 0).toFixed(2)}</td>
+                <td class="py-2 pr-4">${res.credit ?? '-'}</td>
+              `;
+              resultsBody.appendChild(tr);
+            });
+        }
+      }
+
+      if (emptyState){
+        emptyState.classList.add('hidden');
+      }
+      if (content){
+        content.classList.remove('hidden');
+      }
+    }
+
+    async function refreshStudentProfileIfActive(){
+      if (currentProfileStudentId){
+        await renderStudentProfile(currentProfileStudentId);
+      }
+    }
+
     function rebuildLedgerFilter(select, options, placeholder, previousValue){
       if (!select) return '';
       const frag = document.createDocumentFragment();
@@ -1880,6 +2280,7 @@
           : 'Discounts Granted: RM 0.00';
       }
       await renderDashboard();
+      await refreshStudentProfileIfActive();
     }
 
     // ---------------------- Finance Helpers ----------------------
@@ -2519,6 +2920,7 @@
     });
 
     let editingStudentId = null;
+    let currentProfileStudentId = null;
     const studentSubmitBtn = document.getElementById('student-submit');
     const studentCancelBtn = document.getElementById('student-cancel-edit');
     const studentEditingLabel = document.getElementById('student-editing-label');
@@ -2677,6 +3079,17 @@
         const action = target.dataset.action;
         const id = target.dataset.id ? Number(target.dataset.id) : null;
         if (!action || !id) return;
+        if (action === 'view-profile'){
+          currentProfileStudentId = id;
+          await renderStudentProfile(id);
+          const sel = document.getElementById('profile-student');
+          if (sel) sel.value = String(id);
+          const profileTabBtn = document.querySelector('.tab[data-tab="profile"]');
+          if (profileTabBtn){
+            profileTabBtn.click();
+          }
+          return;
+        }
         if (action === 'edit-student'){
           const s = await db.students.get(id);
           if (!s) return;
@@ -3018,9 +3431,25 @@
           if (sid){
             await renderLedger(sid);
             await renderPayments();
-            await renderLedgerOverview();
-          }
-        }
+        await renderLedgerOverview();
+      }
+      await refreshStudentProfileIfActive();
+    }
+      });
+    }
+
+    const profileStudentSelectEl = document.getElementById('profile-student');
+    if (profileStudentSelectEl){
+      profileStudentSelectEl.addEventListener('change', (e) => {
+        const val = Number(e.target.value);
+        currentProfileStudentId = val || null;
+        renderStudentProfile(currentProfileStudentId);
+      });
+    }
+    const profileRefreshBtn = document.getElementById('profile-refresh');
+    if (profileRefreshBtn){
+      profileRefreshBtn.addEventListener('click', () => {
+        renderStudentProfile(currentProfileStudentId);
       });
     }
 
