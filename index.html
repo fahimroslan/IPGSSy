@@ -136,6 +136,10 @@
             <input class="border rounded px-3 py-2 w-full" name="name" required />
           </label>
           <label class="text-sm text-gray-700">
+            MQA Approval No.
+            <input class="border rounded px-3 py-2 w-full" name="mqaCode" placeholder="e.g. MQA/PA12345" required />
+          </label>
+          <label class="text-sm text-gray-700">
             Program Type
             <select class="border rounded px-3 py-2 w-full" name="level" required>
               <option value="">Select Type</option>
@@ -226,6 +230,7 @@
             <tr>
               <th class="py-2 pr-4 text-left border-b">#</th>
                 <th class="py-2 pr-4 text-left border-b">Program</th>
+                <th class="py-2 pr-4 text-left border-b">MQA No.</th>
                 <th class="py-2 pr-4 text-left border-b">Type</th>
                 <th class="py-2 pr-4 text-left border-b">Mode</th>
                 <th class="py-2 pr-4 text-left border-b">Courses</th>
@@ -332,7 +337,7 @@
           <table class="min-w-full text-sm" id="tbl-agents">
             <thead>
               <tr>
-                <th class="py-2 pr-4 text-left border-b">#</th>
+                <th class="py-2 pr-4 text-left border-b">Code</th>
                 <th class="py-2 pr-4 text-left border-b">Name</th>
                 <th class="py-2 pr-4 text-left border-b">Email</th>
                 <th class="py-2 pr-4 text-left border-b">Phone</th>
@@ -388,8 +393,9 @@
               <tr>
                 <th class="py-2 pr-4 text-left border-b">#</th>
                 <th class="py-2 pr-4 text-left border-b">Group</th>
-                <th class="py-2 pr-4 text-left border-b">Program</th>
-                <th class="py-2 pr-4 text-left border-b">Agent</th>
+                <th class="py-2 pr-4 text-left border-b">Index</th>
+                <th class="py-2 pr-4 text-left border-b">Program (MQA)</th>
+                <th class="py-2 pr-4 text-left border-b">Agent (Code)</th>
                 <th class="py-2 pr-4 text-left border-b">Registration</th>
                 <th class="py-2 pr-4 text-left border-b">Tuition</th>
                 <th class="py-2 pr-4 text-left border-b">Convocation</th>
@@ -637,12 +643,12 @@
           <strong>Programs</strong>, <strong>Students</strong>, <strong>Courses</strong>, <strong>Results</strong>.
         </p>
         <ul class="text-sm text-gray-600 list-disc ml-5 mb-3">
-          <li><b>Programs</b>: type (Master/PhD), name, mode, projectType (Project/Dissertation/Thesis), duration (years)</li>
+          <li><b>Programs</b>: mqaCode (approval no.), type (Master/PhD), name, mode, projectType (Project/Dissertation/Thesis), duration (years)</li>
           <li><b>Students</b>: studentId, name, email, phone, intake, program (program name), status</li>
           <li><b>Courses</b>: code, title, credit hours, program (program name)</li>
           <li><b>Results</b>: studentId or name, courseCode, semester, mark</li>
           <li><b>Agents</b>: name, email, phone, agreementLink, agreement, status (Active/Terminated)</li>
-          <li><b>FeeGroups</b>: name, program (program name), agent (agent name), registrationFee, tuitionFee, convocationFee</li>
+          <li><b>FeeGroups</b>: name, program (program name or mqaCode), agent (agent code or name), registrationFee, tuitionFee, convocationFee, sequence (per agent)</li>
           <li><b>Invoices</b>: studentId or name, feeGroup (name), feeType (registration/tuition/convocation/manual), amount, paid, status, createdAt</li>
           <li><b>Payments</b>: studentId or name, feeGroup (fee group name), type (debit/credit/discount), amount, date, note</li>
         </ul>
@@ -793,6 +799,38 @@
         }
       });
     });
+    db.version(12).stores({
+      programs: '++id, mqaCode, name, mode, duration, projectType, level',
+      students: '++id, studentId, name, email, phone, intake, programId, feeGroupId, paymentPlan, registrationDate, status',
+      courses: '++id, code, title, credit, programId',
+      studentCourses: '++id, studentIdFk, courseIdFk',
+      results: '++id, studentIdFk, courseIdFk, semester, mark, grade, point, credit',
+      agents: '++id, name, email, phone, status',
+      feeGroups: '++id, name, programId, agentId, sequence',
+      invoices: '++id, studentIdFk, feeGroupId, feeType, status, createdAt',
+      payments: '++id, studentIdFk, feeGroupId, invoiceIdFk, type, date'
+    }).upgrade(async tx => {
+      await tx.programs.toCollection().modify(p => {
+        if (typeof p.mqaCode === 'undefined'){
+          p.mqaCode = '';
+        }
+      });
+      const seqTracker = {};
+      const allFeeGroups = await tx.feeGroups.toArray();
+      allFeeGroups.forEach(fg => {
+        if (!fg.agentId) return;
+        const current = Number(fg.sequence) || 0;
+        seqTracker[fg.agentId] = Math.max(seqTracker[fg.agentId] || 0, current);
+      });
+      for (const fg of allFeeGroups){
+        if (fg.sequence) continue;
+        const agentId = fg.agentId;
+        if (!agentId) continue;
+        const nextSeq = (seqTracker[agentId] || 0) + 1;
+        seqTracker[agentId] = nextSeq;
+        await tx.feeGroups.update(fg.id, { sequence: nextSeq });
+      }
+    });
 
     // ---------------------- Grade Scale ----------------------
     function gradeFromMark(mark){
@@ -940,16 +978,17 @@
       if (pSel){ pSel.innerHTML = '<option value="">Select Program</option>'; }
       if (feeProgramSel){ feeProgramSel.innerHTML = '<option value="">Select Program</option>'; }
       for (const p of programs){
+        const programLabel = p.mqaCode ? `${p.name} (${p.mqaCode})` : p.name;
         if (pSel){
           const opt1 = document.createElement('option');
           opt1.value = p.id;
-          opt1.textContent = p.name;
+          opt1.textContent = programLabel;
           pSel.appendChild(opt1);
         }
         if (feeProgramSel){
           const opt3 = document.createElement('option');
           opt3.value = p.id;
-          opt3.textContent = p.name;
+          opt3.textContent = programLabel;
           feeProgramSel.appendChild(opt3);
         }
       }
@@ -1008,10 +1047,18 @@
         for (const a of activeAgents){
           const opt = document.createElement('option');
           opt.value = a.id;
-          opt.textContent = a.name;
+          opt.textContent = `${formatAgentCode(a.id)} — ${a.name}`;
           feeAgentSel.appendChild(opt);
         }
       }
+    }
+
+    async function getNextFeeGroupSequence(agentId){
+      if (!agentId) return 1;
+      const existing = await db.feeGroups.where('agentId').equals(agentId).toArray();
+      if (!existing.length) return 1;
+      const maxSeq = existing.reduce((max, fg) => Math.max(max, Number(fg.sequence) || 0), 0);
+      return maxSeq + 1;
     }
 
     async function terminateAgent(agentId, reason){
@@ -1047,7 +1094,8 @@
         for (const fg of feeGroups){
           const opt = document.createElement('option');
           opt.value = fg.id;
-          opt.textContent = fg.name;
+          const programLabel = pmap[fg.programId] ? ` (${pmap[fg.programId]})` : '';
+          opt.textContent = `${formatFeeGroupCode(fg.agentId, fg.sequence)} — ${fg.name}${programLabel}`;
           paymentFeeSel.appendChild(opt);
         }
       }
@@ -1057,7 +1105,7 @@
           const opt = document.createElement('option');
           opt.value = fg.id;
           const pname = pmap[fg.programId] ? ` (${pmap[fg.programId]})` : '';
-          opt.textContent = `${fg.name}${pname}`;
+          opt.textContent = `${formatFeeGroupCode(fg.agentId, fg.sequence)} — ${fg.name}${pname}`;
           stuFeeSel.appendChild(opt);
         }
       }
@@ -1087,6 +1135,7 @@
         tr.innerHTML = `
           <td class="py-2 pr-4">${i+1}</td>
           <td class="py-2 pr-4">${p.name || ''}</td>
+          <td class="py-2 pr-4 font-mono text-sm">${p.mqaCode || '-'}</td>
           <td class="py-2 pr-4">${p.level || '-'}</td>
           <td class="py-2 pr-4">${p.mode || ''}</td>
           <td class="py-2 pr-4">${courseCount[p.id] || 0}</td>
@@ -1103,7 +1152,7 @@
         detailTr.classList.add('hidden');
         detailTr.dataset.detailFor = p.id;
         detailTr.innerHTML = `
-          <td colspan="8" class="bg-gray-50 px-4 py-3">
+          <td colspan="9" class="bg-gray-50 px-4 py-3">
             <div class="text-sm text-gray-600 mb-2">Courses for ${p.name || ''}</div>
             <div data-courses-list="${p.id}" class="text-sm text-gray-700">No courses loaded.</div>
           </td>
@@ -1219,7 +1268,7 @@
         const tr = document.createElement('tr');
         tr.className = isTerminated ? 'text-gray-500' : '';
         tr.innerHTML = `
-          <td class="py-2 pr-4">${i+1}</td>
+          <td class="py-2 pr-4 font-mono">${formatAgentCode(a.id)}</td>
           <td class="py-2 pr-4">${a.name || ''}</td>
           <td class="py-2 pr-4">${a.email || ''}</td>
           <td class="py-2 pr-4">${a.phone || ''}</td>
@@ -1250,10 +1299,12 @@
         const tui = Number(fg.tuitionFee) || 0;
         const conv = Number(fg.convocationFee) || 0;
         const total = reg + tui + conv;
+        const indexCode = formatFeeGroupCode(fg.agentId, fg.sequence);
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="py-2 pr-4">${i+1}</td>
           <td class="py-2 pr-4">${fg.name || ''}</td>
+          <td class="py-2 pr-4 font-mono text-sm">${indexCode}</td>
           <td class="py-2 pr-4">${pmap[fg.programId] || '-'}</td>
           <td class="py-2 pr-4">${amap[fg.agentId] || '-'}</td>
           <td class="py-2 pr-4">${reg.toFixed(2)}</td>
@@ -1278,7 +1329,7 @@
       ]);
       const payments = allPayments.filter(p => !p.deleted);
       const smap = Object.fromEntries(students.map(s => [s.id, s.name]));
-      const fgmap = Object.fromEntries(feeGroups.map(fg => [fg.id, fg.name]));
+      const fgmap = Object.fromEntries(feeGroups.map(fg => [fg.id, `${fg.name} (${formatFeeGroupCode(fg.agentId, fg.sequence)})`]));
       const balanceMap = {};
 
       payments.forEach((p, i) => {
@@ -1319,6 +1370,17 @@
 
     function formatMoney(value){
       return currencyFormatter.format(Number(value) || 0);
+    }
+
+    function formatAgentCode(agentId){
+      if (agentId === null || agentId === undefined) return 'AG-????';
+      return `AG-${String(agentId).padStart(4, '0')}`;
+    }
+
+    function formatFeeGroupCode(agentId, sequence){
+      const agentCode = formatAgentCode(agentId);
+      const seqPart = sequence ? `FG-${String(sequence).padStart(2, '0')}` : 'FG-??';
+      return `${agentCode}/${seqPart}`;
     }
 
     function calculateInvoiceBalance(invoice){
@@ -1389,10 +1451,14 @@
       const feeGroupMap = new Map(feeGroups.map(fg => [fg.id, fg]));
 
       const programOptions = programs
-        .map(p => ({ value: p.id, label: p.name || `Program #${p.id}` }))
+        .map(p => {
+          const base = p.name || `Program #${p.id}`;
+          const label = p.mqaCode ? `${base} (${p.mqaCode})` : base;
+          return { value: p.id, label };
+        })
         .sort((a,b)=>a.label.localeCompare(b.label));
       const agentOptions = agents
-        .map(a => ({ value: a.id, label: a.name || `Agent #${a.id}` }))
+        .map(a => ({ value: a.id, label: `${formatAgentCode(a.id)} — ${a.name || `Agent #${a.id}`}` }))
         .sort((a,b)=>a.label.localeCompare(b.label));
 
       const prevProgram = programSelect.value;
@@ -1424,7 +1490,6 @@
       });
 
       const collectedByStudent = new Map();
-      let totalDiscountAmount = 0;
       payments.forEach(p => {
         const type = (p.type || '').toString().toLowerCase();
         if (type === 'debit') return;
@@ -1432,7 +1497,6 @@
         if (type === 'discount'){
           const prev = discountByStudent.get(p.studentIdFk) || 0;
           discountByStudent.set(p.studentIdFk, prev + amt);
-          totalDiscountAmount += amt;
           return;
         }
         const prev = collectedByStudent.get(p.studentIdFk) || 0;
@@ -1462,8 +1526,14 @@
         const overdue = invs.reduce((sum, inv) => sum + (isInvoiceOverdue(inv) ? calculateInvoiceBalance(inv) : 0), 0);
         const collected = collectedByStudent.get(student.id) || 0;
         const fg = student.feeGroupId ? feeGroupMap.get(student.feeGroupId) : null;
-        const agentName = fg ? (agentMap.get(fg.agentId)?.name || '-') : '-';
-        const programName = student.programId ? (programMap.get(student.programId)?.name || '-') : '-';
+        const agentRecord = fg ? agentMap.get(fg.agentId) : null;
+        const agentName = agentRecord
+          ? `${agentRecord.name || '-'} (${formatAgentCode(agentRecord.id || fg.agentId)})`
+          : '-';
+        const programRecord = student.programId ? programMap.get(student.programId) : null;
+        const programName = programRecord
+          ? `${programRecord.name || '-'}${programRecord.mqaCode ? ` (${programRecord.mqaCode})` : ''}`
+          : '-';
         const status = pending <= 0 ? 'Paid' : (pending < billed ? 'Partial' : 'Open');
         rows.push({
           studentName: student.name || `Student #${student.id}`,
@@ -1494,7 +1564,7 @@
             <td class="py-2 pr-4">${row.invoicesCount}</td>
             <td class="py-2 pr-4">${formatMoney(row.billed)}</td>
             <td class="py-2 pr-4">${formatMoney(row.collected)}</td>
-            <td class="py-2 pr-4 text-emerald-600">${row.discount ? `(${formatMoney(row.discount)})` : '-'}</td>
+            <td class="py-2 pr-4 text-emerald-600">${row.discount ? `RM ${formatMoney(row.discount)}` : '-'}</td>
             <td class="py-2 pr-4">${formatMoney(row.pending)}</td>
             <td class="py-2 pr-4">${formatMoney(row.overdue)}</td>
             <td class="py-2 pr-4">${row.status}</td>
@@ -1529,6 +1599,7 @@
       if (pendingNote) pendingNote.textContent = rows.length ? 'Outstanding balance' : 'Nothing pending';
       if (overdueEl) overdueEl.textContent = `RM ${formatMoney(totals.overdue)}`;
       if (overdueNote) overdueNote.textContent = rows.length ? 'Older than 30 days' : 'No invoices';
+      const totalDiscountAmount = totals.discount;
       const discountSummary = document.getElementById('ledger-discount-summary');
       if (discountSummary){
         discountSummary.textContent = rows.length
@@ -2137,11 +2208,18 @@
       e.preventDefault();
       const fd = new FormData(e.target);
       const data = Object.fromEntries(fd.entries());
+      const mqaCode = (data.mqaCode || '').toString().trim().toUpperCase();
+      if (!mqaCode) return alert('MQA approval number is required.');
+      const duplicate = await db.programs.where('mqaCode').equals(mqaCode).first();
+      if (duplicate && duplicate.id !== editingProgramId){
+        return alert('This MQA approval number is already registered to another program.');
+      }
       const durationYears = data.duration ? Number(data.duration) : null;
       const projectType = normalizeProjectType(data.projectType) || PROJECT_OPTIONS[0];
       const level = (data.level || '').toString().trim() || 'Master';
       const payload = {
         name: data.name?.trim(),
+        mqaCode,
         level,
         mode: data.mode?.trim(),
         projectType,
@@ -2274,6 +2352,7 @@
           if (!record) return;
           const form = document.getElementById('form-program');
           form.elements['name'].value = record.name || '';
+          form.elements['mqaCode'].value = record.mqaCode || '';
           form.elements['level'].value = record.level || '';
           form.elements['mode'].value = record.mode || '';
           form.elements['projectType'].value = record.projectType || '';
@@ -2522,10 +2601,14 @@
       if (!data.name || !data.programId || !data.agentId){
         return alert('Fee group name, program, and agent are required.');
       }
+      const agentId = Number(data.agentId);
+      const programId = Number(data.programId);
+      const sequence = await getNextFeeGroupSequence(agentId);
       await db.feeGroups.add({
         name: data.name.trim(),
-        programId: Number(data.programId),
-        agentId: Number(data.agentId),
+        programId,
+        agentId,
+        sequence,
         registrationFee: Number(data.registrationFee) || 0,
         tuitionFee: Number(data.tuitionFee) || 0,
         convocationFee: Number(data.convocationFee) || 0
@@ -2885,12 +2968,14 @@
       // Programs
       XLSX.utils.book_append_sheet(
         wb,
-        XLSX.utils.aoa_to_sheet(aoaFromObjects(programs, ['id','name','level','mode','projectType','duration'])),
+        XLSX.utils.aoa_to_sheet(aoaFromObjects(programs, ['id','mqaCode','name','level','mode','projectType','duration'])),
         'Programs'
       );
 
       const programsMap = Object.fromEntries(programs.map(p=>[p.id,p.name]));
+      const programMqaMap = Object.fromEntries(programs.map(p=>[p.id,p.mqaCode||'']));
       const agentsMap = Object.fromEntries(agents.map(a=>[a.id,a.name]));
+      const feeGroupCodeById = Object.fromEntries(feeGroups.map(fg=>[fg.id, formatFeeGroupCode(fg.agentId, fg.sequence)]));
 
       // Students (with program name)
       const studentsView = students.map(s=>({
@@ -2901,11 +2986,13 @@
         phone: s.phone,
         intake: s.intake,
         program: programsMap[s.programId] || '',
+        programMqa: programMqaMap[s.programId] || '',
+        feeGroupCode: s.feeGroupId ? (feeGroupCodeById[s.feeGroupId] || '') : '',
         status: s.status
       }));
       XLSX.utils.book_append_sheet(
         wb,
-        XLSX.utils.aoa_to_sheet(aoaFromObjects(studentsView, ['id','studentId','name','email','phone','intake','program','status'])),
+        XLSX.utils.aoa_to_sheet(aoaFromObjects(studentsView, ['id','studentId','name','email','phone','intake','program','programMqa','feeGroupCode','status'])),
         'Students'
       );
 
@@ -2970,23 +3057,30 @@
         name: fg.name,
         program: programsMap[fg.programId] || '',
         agent: agentsMap[fg.agentId] || '',
+        agentCode: formatAgentCode(fg.agentId),
+        sequence: fg.sequence || '',
+        feeGroupCode: formatFeeGroupCode(fg.agentId, fg.sequence),
         registrationFee: fg.registrationFee,
         tuitionFee: fg.tuitionFee,
         convocationFee: fg.convocationFee
       }));
       XLSX.utils.book_append_sheet(
         wb,
-        XLSX.utils.aoa_to_sheet(aoaFromObjects(feeGroupsView, ['id','name','program','agent','registrationFee','tuitionFee','convocationFee'])),
+        XLSX.utils.aoa_to_sheet(aoaFromObjects(feeGroupsView, ['id','name','program','agent','agentCode','sequence','feeGroupCode','registrationFee','tuitionFee','convocationFee'])),
         'FeeGroups'
       );
 
       // Invoices
-      const fgMapById = Object.fromEntries(feeGroups.map(fg=>[fg.id, fg.name]));
+      const fgMapById = Object.fromEntries(feeGroups.map(fg=>[fg.id, {
+        name: fg.name,
+        code: formatFeeGroupCode(fg.agentId, fg.sequence)
+      }]));
       const invoicesView = invoices.map(inv=>({
         id: inv.id,
         studentId: sById[inv.studentIdFk]?.studentId || '',
         name: sById[inv.studentIdFk]?.name || '',
-        feeGroup: inv.feeGroupId ? (fgMapById[inv.feeGroupId] || '') : '',
+        feeGroup: inv.feeGroupId ? (fgMapById[inv.feeGroupId]?.name || '') : '',
+        feeGroupCode: inv.feeGroupId ? (fgMapById[inv.feeGroupId]?.code || '') : '',
         feeType: inv.feeType,
         amount: inv.amount,
         paid: inv.paid,
@@ -2995,7 +3089,7 @@
       }));
       XLSX.utils.book_append_sheet(
         wb,
-        XLSX.utils.aoa_to_sheet(aoaFromObjects(invoicesView, ['id','studentId','name','feeGroup','feeType','amount','paid','status','createdAt'])),
+        XLSX.utils.aoa_to_sheet(aoaFromObjects(invoicesView, ['id','studentId','name','feeGroup','feeGroupCode','feeType','amount','paid','status','createdAt'])),
         'Invoices'
       );
 
@@ -3005,7 +3099,8 @@
         id: p.id,
         studentId: sById[p.studentIdFk]?.studentId || '',
         name: sById[p.studentIdFk]?.name || '',
-        feeGroup: p.feeGroupId ? (fgMapById[p.feeGroupId] || '') : '',
+        feeGroup: p.feeGroupId ? (fgMapById[p.feeGroupId]?.name || '') : '',
+        feeGroupCode: p.feeGroupId ? (fgMapById[p.feeGroupId]?.code || '') : '',
         invoiceId: p.invoiceIdFk || '',
         invoiceFee: p.invoiceIdFk ? (invMapById[p.invoiceIdFk]?.feeType || '') : '',
         type: p.type,
@@ -3015,7 +3110,7 @@
       }));
       XLSX.utils.book_append_sheet(
         wb,
-        XLSX.utils.aoa_to_sheet(aoaFromObjects(paymentsView, ['id','studentId','name','feeGroup','invoiceId','invoiceFee','type','amount','date','note'])),
+        XLSX.utils.aoa_to_sheet(aoaFromObjects(paymentsView, ['id','studentId','name','feeGroup','feeGroupCode','invoiceId','invoiceFee','type','amount','date','note'])),
         'Payments'
       );
 
@@ -3047,8 +3142,13 @@
           const projectType = normalizeProjectType(r.projectType ?? r.projectComponent ?? r.project);
           const rawLevel = (r.level || r.type || r.programTypeLevel || r.programType)?.toString().trim().toLowerCase();
           const level = rawLevel === 'phd' ? 'PhD' : 'Master';
+          const mqaRaw = (r.mqaCode || r.mqa || r.approval || '').toString().trim().toUpperCase();
+          const mqaCode = mqaRaw || `AUTO-${Date.now()}-${Math.floor(Math.random() * 1000)}`;
+          const existingMqa = await db.programs.where('mqaCode').equals(mqaCode).first();
+          if (existingMqa) continue;
           await db.programs.add({
             name: (r.name || '').toString().trim(),
+            mqaCode,
             level,
             mode: (r.mode || '').toString().trim(),
             projectType,
@@ -3085,8 +3185,12 @@
       const wsStu = sheet('Students');
       if (wsStu){
         const rows = XLSX.utils.sheet_to_json(wsStu, {defval:''});
-        const pmap = Object.fromEntries((await db.programs.toArray()).map(p=>[p.name.trim(), p.id]));
-        const fgmap = Object.fromEntries((await db.feeGroups.toArray()).map(fg=>[(fg.name || '').toString().trim(), fg.id]));
+        const programRecords = await db.programs.toArray();
+        const pmapByName = Object.fromEntries(programRecords.map(p=>[(p.name || '').toString().trim(), p.id]));
+        const pmapByMqa = Object.fromEntries(programRecords.map(p=>[(p.mqaCode || '').toString().trim().toUpperCase(), p.id]));
+        const feeGroupRecords = await db.feeGroups.toArray();
+        const fgmapByName = Object.fromEntries(feeGroupRecords.map(fg=>[(fg.name || '').toString().trim(), fg.id]));
+        const fgmapByCode = Object.fromEntries(feeGroupRecords.map(fg=>[formatFeeGroupCode(fg.agentId, fg.sequence).toUpperCase(), fg.id]));
         for (const r of rows){
           const name = (r.name || '').toString().trim();
           if (!name) continue;
@@ -3098,8 +3202,21 @@
           }
 
           const programName = (r.program || '').toString().trim();
-          const programId = programName && pmap[programName] ? pmap[programName] : null;
-          const feeGroupId = (r.feeGroup || '').toString().trim() ? fgmap[(r.feeGroup || '').toString().trim()] || null : null;
+          const programMqa = (r.programMqa || r.programCode || r.mqaCode || '').toString().trim().toUpperCase();
+          let programId = null;
+          if (programMqa && pmapByMqa[programMqa]){
+            programId = pmapByMqa[programMqa];
+          } else if (programName && pmapByName[programName]){
+            programId = pmapByName[programName];
+          }
+          const feeGroupCodeKey = (r.feeGroupCode || r.fgCode || '').toString().trim().toUpperCase();
+          const feeGroupNameKey = (r.feeGroup || '').toString().trim();
+          let feeGroupId = null;
+          if (feeGroupCodeKey && fgmapByCode[feeGroupCodeKey]){
+            feeGroupId = fgmapByCode[feeGroupCodeKey];
+          } else if (feeGroupNameKey){
+            feeGroupId = fgmapByName[feeGroupNameKey] || null;
+          }
           const paymentPlan = (r.paymentPlan || '').toString().trim() || 'lump';
           const registrationDate = (r.registrationDate || '').toString().trim();
 
@@ -3152,17 +3269,38 @@
       const wsFG = sheet('FeeGroups');
       if (wsFG){
         const rows = XLSX.utils.sheet_to_json(wsFG, {defval:''});
-        const pmap = Object.fromEntries((await db.programs.toArray()).map(p=>[p.name.trim(), p.id]));
-        const amap = Object.fromEntries((await db.agents.toArray()).map(a=>[(a.name || '').toString().trim(), a.id]));
+        const programs = await db.programs.toArray();
+        const agents = await db.agents.toArray();
+        const existingFeeGroups = await db.feeGroups.toArray();
+        const pmapByName = Object.fromEntries(programs.map(p=>[(p.name || '').toString().trim(), p.id]));
+        const pmapByMqa = Object.fromEntries(programs.map(p=>[(p.mqaCode || '').toString().trim().toUpperCase(), p.id]));
+        const amapByName = Object.fromEntries(agents.map(a=>[(a.name || '').toString().trim(), a.id]));
+        const amapByCode = Object.fromEntries(agents.map(a=>[formatAgentCode(a.id).toUpperCase(), a.id]));
+        const nextSeqMap = {};
+        existingFeeGroups.forEach(fg => {
+          if (!fg.agentId) return;
+          nextSeqMap[fg.agentId] = Math.max(nextSeqMap[fg.agentId] || 0, Number(fg.sequence) || 0);
+        });
         for (const r of rows){
           const name = (r.name || '').toString().trim();
           if (!name) continue;
-          const programId = pmap[(r.program || '').toString().trim()] || null;
-          const agentId = amap[(r.agent || '').toString().trim()] || null;
+          const programName = (r.program || '').toString().trim();
+          const programMqa = (r.programMqa || r.programCode || r.mqaCode || '').toString().trim().toUpperCase();
+          const programId = programMqa ? (pmapByMqa[programMqa] || null) : (pmapByName[programName] || null);
+          const agentName = (r.agent || '').toString().trim();
+          const agentCode = (r.agentCode || '').toString().trim().toUpperCase();
+          const agentId = agentCode ? (amapByCode[agentCode] || null) : (amapByName[agentName] || null);
+          if (!agentId) continue;
+          let sequence = Number(r.sequence);
+          if (!Number.isFinite(sequence) || sequence <= 0){
+            sequence = (nextSeqMap[agentId] || 0) + 1;
+          }
+          nextSeqMap[agentId] = Math.max(nextSeqMap[agentId] || 0, sequence);
           await db.feeGroups.add({
             name,
             programId,
             agentId,
+            sequence,
             registrationFee: Number(r.registrationFee) || 0,
             tuitionFee: Number(r.tuitionFee) || 0,
             convocationFee: Number(r.convocationFee) || 0
@@ -3180,12 +3318,14 @@
         const sById = Object.fromEntries(students.map(s=>[(s.studentId || '').toString().trim(), s.id]));
         const sByName = Object.fromEntries(students.map(s=>[(s.name || '').toString().trim(), s.id]));
         const fgByName = Object.fromEntries(feeGroups.map(fg=>[(fg.name || '').toString().trim(), fg.id]));
+        const fgByCode = Object.fromEntries(feeGroups.map(fg=>[formatFeeGroupCode(fg.agentId, fg.sequence).toUpperCase(), fg.id]));
 
         for (const r of rows){
           const studentIdFk = sById[(r.studentId || '').toString().trim()] ||
                               sByName[(r.name || '').toString().trim()];
           if (!studentIdFk) continue;
-          const feeGroupId = fgByName[(r.feeGroup || '').toString().trim()] || null;
+          const feeGroupCodeKey = (r.feeGroupCode || r.fgCode || '').toString().trim().toUpperCase();
+          const feeGroupId = feeGroupCodeKey ? (fgByCode[feeGroupCodeKey] || null) : (fgByName[(r.feeGroup || '').toString().trim()] || null);
           const feeType = (r.feeType || '').toString().trim() || 'manual';
           const amount = Number(r.amount);
           if (isNaN(amount) || amount <= 0) continue;
@@ -3249,6 +3389,7 @@
         const sById = Object.fromEntries(students.map(s=>[(s.studentId || '').toString().trim(), s.id]));
         const sByName = Object.fromEntries(students.map(s=>[(s.name || '').toString().trim(), s.id]));
         const fgByName = Object.fromEntries(feeGroups.map(fg=>[(fg.name || '').toString().trim(), fg.id]));
+        const fgByCode = Object.fromEntries(feeGroups.map(fg=>[formatFeeGroupCode(fg.agentId, fg.sequence).toUpperCase(), fg.id]));
         const invById = Object.fromEntries(invoices.map(inv=>[inv.id, inv]));
         const invByKey = {};
         invoices.forEach(inv=>{
@@ -3264,7 +3405,8 @@
           const type = ['debit','credit','discount'].includes(typeRaw) ? typeRaw : 'debit';
           const amount = Number(r.amount);
           if (isNaN(amount) || amount < 0) continue;
-          const feeGroupId = fgByName[(r.feeGroup || '').toString().trim()] || null;
+          const fgCodeKey = (r.feeGroupCode || r.fgCode || '').toString().trim().toUpperCase();
+          const feeGroupId = fgCodeKey ? (fgByCode[fgCodeKey] || null) : (fgByName[(r.feeGroup || '').toString().trim()] || null);
           const invoiceIdRaw = Number(r.invoiceId);
           const invoiceFee = (r.invoiceFee || '').toString().trim().toLowerCase();
           let invoiceIdFk = !isNaN(invoiceIdRaw) && invById[invoiceIdRaw] ? invoiceIdRaw : null;
@@ -3427,8 +3569,13 @@
 
     // ---------------------- Button wiring ----------------------
     document.getElementById('export-students').addEventListener('click', async () => {
-      const programs = await db.programs.toArray();
+      const [programs, feeGroups] = await Promise.all([
+        db.programs.toArray(),
+        db.feeGroups.toArray()
+      ]);
       const pmap = Object.fromEntries(programs.map(p=>[p.id,p.name]));
+      const pmapMqa = Object.fromEntries(programs.map(p=>[p.id,p.mqaCode]));
+      const fgCodeMap = Object.fromEntries(feeGroups.map(fg=>[fg.id, formatFeeGroupCode(fg.agentId, fg.sequence)]));
       const students = (await db.students.toArray()).map(s=>({
         id:s.id,
         studentId:s.studentId||'',
@@ -3437,16 +3584,18 @@
         phone:s.phone||'',
         intake:s.intake||'',
         program:pmap[s.programId]||'',
+        programMqa:pmapMqa[s.programId]||'',
+        feeGroupCode:s.feeGroupId ? (fgCodeMap[s.feeGroupId] || '') : '',
         status:s.status||'Active',
         paymentPlan:s.paymentPlan||'lump',
         registrationDate:s.registrationDate||''
       }));
-      exportSheet('Students', students, ['id','studentId','name','email','phone','intake','program','status','paymentPlan','registrationDate']);
+      exportSheet('Students', students, ['id','studentId','name','email','phone','intake','program','programMqa','feeGroupCode','status','paymentPlan','registrationDate']);
     });
 
     document.getElementById('export-programs').addEventListener('click', async () => {
       const programs = await db.programs.toArray();
-      exportSheet('Programs', programs, ['id','name','level','mode','projectType','duration']);
+      exportSheet('Programs', programs, ['id','mqaCode','name','level','mode','projectType','duration']);
     });
 
     document.getElementById('export-courses').addEventListener('click', async () => {
@@ -3509,11 +3658,14 @@
         name:fg.name,
         program:pmap[fg.programId]||'',
         agent:amap[fg.agentId]||'',
+        agentCode:formatAgentCode(fg.agentId),
+        sequence:fg.sequence||'',
+        feeGroupCode:formatFeeGroupCode(fg.agentId, fg.sequence),
         registrationFee:fg.registrationFee,
         tuitionFee:fg.tuitionFee,
         convocationFee:fg.convocationFee
       }));
-      exportSheet('FeeGroups', view, ['id','name','program','agent','registrationFee','tuitionFee','convocationFee']);
+      exportSheet('FeeGroups', view, ['id','name','program','agent','agentCode','sequence','feeGroupCode','registrationFee','tuitionFee','convocationFee']);
     });
 
     document.getElementById('export-payments').addEventListener('click', async () => {
@@ -3522,12 +3674,16 @@
       ]);
       const payments = allPayments.filter(p => !p.deleted);
       const sById = Object.fromEntries(students.map(s=>[s.id,s]));
-      const fgById = Object.fromEntries(feeGroups.map(fg=>[fg.id, fg.name]));
+      const fgById = Object.fromEntries(feeGroups.map(fg=>[fg.id, {
+        name: fg.name,
+        code: formatFeeGroupCode(fg.agentId, fg.sequence)
+      }]));
       const view = payments.map(p=>({
         id:p.id,
         studentId:sById[p.studentIdFk]?.studentId||'',
         name:sById[p.studentIdFk]?.name||'',
-        feeGroup:p.feeGroupId ? (fgById[p.feeGroupId]||'') : '',
+        feeGroup:p.feeGroupId ? (fgById[p.feeGroupId]?.name||'') : '',
+        feeGroupCode:p.feeGroupId ? (fgById[p.feeGroupId]?.code||'') : '',
         invoiceId:p.invoiceIdFk||'',
         type:p.type,
         amount:p.amount,
@@ -3535,7 +3691,7 @@
         note:p.note,
         reason:p.lastChangeReason||''
       }));
-      exportSheet('Payments', view, ['id','studentId','name','feeGroup','invoiceId','type','amount','date','note','reason']);
+      exportSheet('Payments', view, ['id','studentId','name','feeGroup','feeGroupCode','invoiceId','type','amount','date','note','reason']);
     });
 
     document.getElementById('export-invoices').addEventListener('click', async () => {
@@ -3543,19 +3699,23 @@
         db.invoices.toArray(), db.students.toArray(), db.feeGroups.toArray()
       ]);
       const sById = Object.fromEntries(students.map(s=>[s.id,s]));
-      const fgById = Object.fromEntries(feeGroups.map(fg=>[fg.id, fg.name]));
+      const fgById = Object.fromEntries(feeGroups.map(fg=>[fg.id, {
+        name: fg.name,
+        code: formatFeeGroupCode(fg.agentId, fg.sequence)
+      }]));
       const view = invoices.map(inv=>({
         id:inv.id,
         studentId:sById[inv.studentIdFk]?.studentId||'',
         name:sById[inv.studentIdFk]?.name||'',
-        feeGroup:inv.feeGroupId ? (fgById[inv.feeGroupId]||'') : '',
+        feeGroup:inv.feeGroupId ? (fgById[inv.feeGroupId]?.name||'') : '',
+        feeGroupCode:inv.feeGroupId ? (fgById[inv.feeGroupId]?.code||'') : '',
         feeType:inv.feeType,
         amount:inv.amount,
         paid:inv.paid,
         status:inv.status,
         createdAt:inv.createdAt
       }));
-      exportSheet('Invoices', view, ['id','studentId','name','feeGroup','feeType','amount','paid','status','createdAt']);
+      exportSheet('Invoices', view, ['id','studentId','name','feeGroup','feeGroupCode','feeType','amount','paid','status','createdAt']);
     });
 
     document.getElementById('export-all-xlsx').addEventListener('click', exportAllWorkbook);
