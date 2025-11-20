@@ -24,7 +24,8 @@
 
     <!-- Tabs -->
     <div class="mb-4 flex gap-2 flex-wrap">
-      <button class="tab px-3 py-2 rounded bg-blue-600 text-white" data-tab="students">Students</button>
+      <button class="tab px-3 py-2 rounded bg-blue-600 text-white" data-tab="dashboard">Dashboard</button>
+      <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="students">Students</button>
       <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="programs">Programs</button>
       <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="results">Results</button>
       <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="reports">Student Results</button>
@@ -33,8 +34,81 @@
       <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="import">Import/Export</button>
     </div>
 
+    <!-- DASHBOARD -->
+    <section id="panel-dashboard" class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded shadow p-4">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Total Students</p>
+          <p class="text-3xl font-semibold mt-2" id="dashboard-total-students">0</p>
+          <p class="text-xs text-gray-500 mt-1">Active and inactive records</p>
+        </div>
+        <div class="bg-white rounded shadow p-4">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Total Programs</p>
+          <p class="text-3xl font-semibold mt-2" id="dashboard-total-programs">0</p>
+          <p class="text-xs text-gray-500 mt-1">MQA-approved offerings</p>
+        </div>
+        <div class="bg-white rounded shadow p-4">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Total Agents</p>
+          <p class="text-3xl font-semibold mt-2" id="dashboard-total-agents">0</p>
+          <p class="text-xs text-gray-500 mt-1">Internal + external</p>
+        </div>
+        <div class="bg-white rounded shadow p-4">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Collected Fees</p>
+          <p class="text-3xl font-semibold mt-2" id="dashboard-total-collected">RM 0.00</p>
+          <p class="text-xs text-gray-500 mt-1" id="dashboard-collected-percentage">0% of billed</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-white rounded shadow p-4">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold">Financial Snapshot</h3>
+            <span class="text-xs text-gray-500" id="dashboard-last-updated"></span>
+          </div>
+          <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div class="bg-gray-50 rounded p-3">
+              <dt class="text-gray-500 uppercase text-xs tracking-wide">Total Billed</dt>
+              <dd class="text-xl font-semibold mt-1" id="dashboard-total-billed">RM 0.00</dd>
+            </div>
+            <div class="bg-gray-50 rounded p-3">
+              <dt class="text-gray-500 uppercase text-xs tracking-wide">Outstanding (Pending + Overdue)</dt>
+              <dd class="text-xl font-semibold mt-1 text-amber-600" id="dashboard-total-outstanding">RM 0.00</dd>
+            </div>
+            <div class="bg-gray-50 rounded p-3">
+              <dt class="text-gray-500 uppercase text-xs tracking-wide">Pending</dt>
+              <dd class="text-xl font-semibold mt-1" id="dashboard-total-pending">RM 0.00</dd>
+            </div>
+            <div class="bg-gray-50 rounded p-3">
+              <dt class="text-gray-500 uppercase text-xs tracking-wide">Overdue</dt>
+              <dd class="text-xl font-semibold mt-1 text-red-600" id="dashboard-total-overdue">RM 0.00</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="bg-white rounded shadow p-4">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold">Students by Program</h3>
+            <span class="text-xs text-gray-500" id="dashboard-program-total">0 programs</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead>
+                <tr class="text-left border-b">
+                  <th class="py-2 pr-4">Program</th>
+                  <th class="py-2 pr-4">Students</th>
+                  <th class="py-2 pr-4">% of Total</th>
+                </tr>
+              </thead>
+              <tbody id="dashboard-program-rows"></tbody>
+            </table>
+            <p class="text-xs text-gray-500 mt-3 hidden" id="dashboard-program-empty">No programs found.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
     <!-- STUDENTS -->
-    <section id="panel-students" class="space-y-4">
+    <section id="panel-students" class="hidden space-y-4">
       <div class="bg-white p-4 rounded shadow">
         <h2 class="font-semibold mb-3">Add Student</h2>
         <form id="form-student" class="grid grid-cols-1 md:grid-cols-3 gap-3">
@@ -320,6 +394,13 @@
             <input class="border rounded px-3 py-2 w-full" name="phone" />
           </label>
           <label class="text-sm text-gray-700">
+            Agent Type
+            <select class="border rounded px-3 py-2 w-full" name="type" id="agent-type">
+              <option value="external">External Agent</option>
+              <option value="internal">Internal Marketing</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
             Agreement Link
             <input class="border rounded px-3 py-2 w-full" name="agreementLink" type="url" placeholder="https://example.com/agreement.pdf" />
           </label>
@@ -339,6 +420,7 @@
               <tr>
                 <th class="py-2 pr-4 text-left border-b">Code</th>
                 <th class="py-2 pr-4 text-left border-b">Name</th>
+                <th class="py-2 pr-4 text-left border-b">Type</th>
                 <th class="py-2 pr-4 text-left border-b">Email</th>
                 <th class="py-2 pr-4 text-left border-b">Phone</th>
                 <th class="py-2 pr-4 text-left border-b">Agreement Link</th>
@@ -372,7 +454,13 @@
               <option value="">Select Agent</option>
             </select>
           </label>
-          <div></div>
+          <label class="text-sm text-gray-700">
+            Copy Fees from Internal Marketing
+            <select class="border rounded px-3 py-2 w-full" id="fee-internal-template">
+              <option value="">No Template</option>
+            </select>
+            <span class="text-xs text-gray-500 mt-1 block">Copies registration, tuition, and convocation amounts.</span>
+          </label>
           <label class="text-sm text-gray-700">
             Registration Fee
             <input class="border rounded px-3 py-2 w-full" name="registrationFee" type="number" step="0.01" value="0" />
@@ -647,7 +735,7 @@
           <li><b>Students</b>: studentId, name, email, phone, intake, program (program name), status</li>
           <li><b>Courses</b>: code, title, credit hours, program (program name)</li>
           <li><b>Results</b>: studentId or name, courseCode, semester, mark</li>
-          <li><b>Agents</b>: name, email, phone, agreementLink, agreement, status (Active/Terminated)</li>
+          <li><b>Agents</b>: name, email, phone, agreementLink, agreement, status (Active/Terminated), type (External Agent/Internal Marketing)</li>
           <li><b>FeeGroups</b>: name, program (program name or mqaCode), agent (agent code or name), registrationFee, tuitionFee, convocationFee, sequence (per agent)</li>
           <li><b>Invoices</b>: studentId or name, feeGroup (name), feeType (registration/tuition/convocation/manual), amount, paid, status, createdAt</li>
           <li><b>Payments</b>: studentId or name, feeGroup (fee group name), type (debit/credit/discount), amount, date, note</li>
@@ -831,6 +919,26 @@
         await tx.feeGroups.update(fg.id, { sequence: nextSeq });
       }
     });
+    db.version(13).stores({
+      programs: '++id, mqaCode, name, mode, duration, projectType, level',
+      students: '++id, studentId, name, email, phone, intake, programId, feeGroupId, paymentPlan, registrationDate, status',
+      courses: '++id, code, title, credit, programId',
+      studentCourses: '++id, studentIdFk, courseIdFk',
+      results: '++id, studentIdFk, courseIdFk, semester, mark, grade, point, credit',
+      agents: '++id, name, email, phone, status, type',
+      feeGroups: '++id, name, programId, agentId, sequence',
+      invoices: '++id, studentIdFk, feeGroupId, feeType, status, createdAt',
+      payments: '++id, studentIdFk, feeGroupId, invoiceIdFk, type, date'
+    }).upgrade(async tx => {
+      await tx.agents.toCollection().modify(a => {
+        if (!a.status){
+          a.status = 'Active';
+        }
+        if (!a.type){
+          a.type = 'external';
+        }
+      });
+    });
 
     // ---------------------- Grade Scale ----------------------
     function gradeFromMark(mark){
@@ -944,6 +1052,7 @@
 
     // ---------------------- Tabs ----------------------
     const panels = {
+      dashboard: document.getElementById('panel-dashboard'),
       students: document.getElementById('panel-students'),
       programs: document.getElementById('panel-programs'),
       results:  document.getElementById('panel-results'),
@@ -962,6 +1071,9 @@
         btn.classList.remove('bg-gray-200');
         const tab = btn.dataset.tab;
         Object.keys(panels).forEach(k => panels[k].classList.toggle('hidden', k !== tab));
+        if (tab === 'dashboard'){
+          renderDashboard();
+        }
       });
     });
 
@@ -1047,7 +1159,7 @@
         for (const a of activeAgents){
           const opt = document.createElement('option');
           opt.value = a.id;
-          opt.textContent = `${formatAgentCode(a.id)} — ${a.name}`;
+          opt.textContent = `${formatAgentCode(a.id)} — ${a.name || 'Unnamed'} (${getAgentTypeLabel(a.type)})`;
           feeAgentSel.appendChild(opt);
         }
       }
@@ -1256,6 +1368,9 @@
       agents.forEach((a, i) => {
         const status = (a.status || 'Active').toString();
         const isTerminated = status.toLowerCase() === 'terminated';
+        const typeBadge = (a.type || 'external') === 'internal'
+          ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-700">Internal Marketing</span>'
+          : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">External Agent</span>';
         const rawLink = (a.agreementLink || '').trim();
         const prefixedLink = rawLink && !/^https?:\/\//i.test(rawLink) ? `https://${rawLink}` : rawLink;
         const safeLink = prefixedLink ? prefixedLink.replace(/"/g, '&quot;') : '';
@@ -1270,6 +1385,7 @@
         tr.innerHTML = `
           <td class="py-2 pr-4 font-mono">${formatAgentCode(a.id)}</td>
           <td class="py-2 pr-4">${a.name || ''}</td>
+          <td class="py-2 pr-4">${typeBadge}</td>
           <td class="py-2 pr-4">${a.email || ''}</td>
           <td class="py-2 pr-4">${a.phone || ''}</td>
           <td class="py-2 pr-4">${linkCell}</td>
@@ -1293,7 +1409,7 @@
         db.feeGroups.toArray(), db.programs.toArray(), db.agents.toArray()
       ]);
       const pmap = Object.fromEntries(programs.map(p => [p.id, p.name]));
-      const amap = Object.fromEntries(agents.map(a => [a.id, a.name]));
+        const amap = Object.fromEntries(agents.map(a => [a.id, a]));
       feeGroups.forEach((fg, i) => {
         const reg = Number(fg.registrationFee) || 0;
         const tui = Number(fg.tuitionFee) || 0;
@@ -1305,8 +1421,8 @@
           <td class="py-2 pr-4">${i+1}</td>
           <td class="py-2 pr-4">${fg.name || ''}</td>
           <td class="py-2 pr-4 font-mono text-sm">${indexCode}</td>
-          <td class="py-2 pr-4">${pmap[fg.programId] || '-'}</td>
-          <td class="py-2 pr-4">${amap[fg.agentId] || '-'}</td>
+            <td class="py-2 pr-4">${pmap[fg.programId] || '-'}</td>
+            <td class="py-2 pr-4">${amap[fg.agentId] ? `${amap[fg.agentId].name || '-'} (${getAgentTypeLabel(amap[fg.agentId].type)})` : '-'}</td>
           <td class="py-2 pr-4">${reg.toFixed(2)}</td>
           <td class="py-2 pr-4">${tui.toFixed(2)}</td>
           <td class="py-2 pr-4">${conv.toFixed(2)}</td>
@@ -1316,6 +1432,7 @@
       });
       await loadFeeGroupsIntoSelects();
       await loadAgentsIntoSelects();
+      updateInternalMarketingTemplates(feeGroups, agents, programs);
     }
 
     async function renderPayments(){
@@ -1383,6 +1500,51 @@
       return `${agentCode}/${seqPart}`;
     }
 
+    const AGENT_TYPE_LABELS = {
+      internal: 'Internal Marketing',
+      external: 'External Agent'
+    };
+
+    function getAgentTypeLabel(type){
+      return AGENT_TYPE_LABELS[type] || AGENT_TYPE_LABELS.external;
+    }
+
+    let internalFeeTemplateMap = new Map();
+
+    function updateInternalMarketingTemplates(feeGroups = [], agents = [], programs = []){
+      const select = document.getElementById('fee-internal-template');
+      if (!select) return;
+      const internalAgentIds = new Set(
+        agents
+          .filter(a => (a.status || 'Active').toLowerCase() !== 'terminated' && (a.type || 'external') === 'internal')
+          .map(a => a.id)
+      );
+      const pmap = Object.fromEntries(programs.map(p => [p.id, p.name || `Program #${p.id}`]));
+      const internalFeeGroups = feeGroups.filter(fg => internalAgentIds.has(fg.agentId));
+      internalFeeTemplateMap = new Map(internalFeeGroups.map(fg => [fg.id, fg]));
+      select.innerHTML = '<option value="">Copy fees from Internal Marketing</option>';
+      select.value = '';
+      if (!internalFeeGroups.length){
+        select.disabled = true;
+        return;
+      }
+      select.disabled = false;
+      internalFeeGroups
+        .slice()
+        .sort((a,b)=>{
+          const nameA = `${pmap[a.programId] || ''} ${a.name || ''}`.trim().toLowerCase();
+          const nameB = `${pmap[b.programId] || ''} ${b.name || ''}`.trim().toLowerCase();
+          return nameA.localeCompare(nameB);
+        })
+        .forEach(fg => {
+          const opt = document.createElement('option');
+          opt.value = fg.id;
+          const programLabel = pmap[fg.programId] ? ` (${pmap[fg.programId]})` : '';
+          opt.textContent = `${formatFeeGroupCode(fg.agentId, fg.sequence)} — ${fg.name || ''}${programLabel}`;
+          select.appendChild(opt);
+        });
+    }
+
     function calculateInvoiceBalance(invoice){
       const amount = Number(invoice?.amount) || 0;
       const paid = Number(invoice?.paid) || 0;
@@ -1396,6 +1558,114 @@
       const due = new Date(created);
       due.setDate(due.getDate() + LEDGER_OVERVIEW_GRACE_DAYS);
       return due < new Date() && calculateInvoiceBalance(invoice) > 0;
+    }
+
+    async function renderDashboard(){
+      const studentTotalEl = document.getElementById('dashboard-total-students');
+      if (!studentTotalEl) return;
+      const [
+        students,
+        programs,
+        agents,
+        invoices
+      ] = await Promise.all([
+        db.students.toArray(),
+        db.programs.toArray(),
+        db.agents.toArray(),
+        db.invoices.toArray()
+      ]);
+      const totalStudents = students.length;
+      const totalPrograms = programs.length;
+      const totalAgents = agents.length;
+      const totalBilled = invoices.reduce((sum, inv) => sum + (Number(inv.amount) || 0), 0);
+      const totalCollected = invoices.reduce((sum, inv) => sum + Math.min(Number(inv.paid) || 0, Number(inv.amount) || 0), 0);
+      const totalPending = invoices.reduce((sum, inv) => sum + calculateInvoiceBalance(inv), 0);
+      const totalOverdue = invoices.reduce((sum, inv) => sum + (isInvoiceOverdue(inv) ? calculateInvoiceBalance(inv) : 0), 0);
+      const outstandingCombined = totalPending + totalOverdue;
+      const collectedPct = totalBilled > 0 ? (totalCollected / totalBilled) * 100 : 0;
+
+      const formatCurrency = (value) => `RM ${formatMoney(value)}`;
+      studentTotalEl.textContent = totalStudents.toString();
+      const programEl = document.getElementById('dashboard-total-programs');
+      const agentEl = document.getElementById('dashboard-total-agents');
+      const collectedEl = document.getElementById('dashboard-total-collected');
+      const collectedPctEl = document.getElementById('dashboard-collected-percentage');
+      const billedEl = document.getElementById('dashboard-total-billed');
+      const pendingEl = document.getElementById('dashboard-total-pending');
+      const overdueEl = document.getElementById('dashboard-total-overdue');
+      const outstandingEl = document.getElementById('dashboard-total-outstanding');
+      const updatedEl = document.getElementById('dashboard-last-updated');
+      if (programEl) programEl.textContent = totalPrograms.toString();
+      if (agentEl) agentEl.textContent = totalAgents.toString();
+      if (collectedEl) collectedEl.textContent = formatCurrency(totalCollected);
+      if (collectedPctEl) collectedPctEl.textContent = totalBilled
+        ? `${collectedPct.toFixed(1)}% of RM ${formatMoney(totalBilled)}`
+        : 'No invoices yet';
+      if (billedEl) billedEl.textContent = formatCurrency(totalBilled);
+      if (pendingEl) pendingEl.textContent = formatCurrency(totalPending);
+      if (overdueEl) overdueEl.textContent = formatCurrency(totalOverdue);
+      if (outstandingEl) outstandingEl.textContent = formatCurrency(outstandingCombined);
+      if (updatedEl) updatedEl.textContent = `Updated ${new Date().toLocaleTimeString()}`;
+
+      const programCountMap = new Map();
+      programs.forEach(p => {
+        programCountMap.set(p.id, {
+          name: p.name || `Program #${p.id}`,
+          mqa: p.mqaCode || '',
+          count: 0
+        });
+      });
+      let unassignedCount = 0;
+      students.forEach(student => {
+        if (student.programId && programCountMap.has(student.programId)){
+          const entry = programCountMap.get(student.programId);
+          entry.count += 1;
+        } else {
+          unassignedCount += 1;
+        }
+      });
+      const programRows = Array.from(programCountMap.values());
+      if (unassignedCount){
+        programRows.push({
+          name: 'Unassigned Students',
+          mqa: '',
+          count: unassignedCount
+        });
+      }
+      programRows.sort((a, b) => {
+        if (b.count === a.count){
+          return a.name.localeCompare(b.name);
+        }
+        return b.count - a.count;
+      });
+      const programBody = document.getElementById('dashboard-program-rows');
+      const programEmpty = document.getElementById('dashboard-program-empty');
+      const programTotalLabel = document.getElementById('dashboard-program-total');
+      if (programTotalLabel){
+        programTotalLabel.textContent = `${totalPrograms} program${totalPrograms === 1 ? '' : 's'}`;
+      }
+      if (programBody){
+        programBody.innerHTML = '';
+        if (!programRows.length){
+          if (programEmpty) programEmpty.classList.remove('hidden');
+        } else {
+          if (programEmpty) programEmpty.classList.add('hidden');
+          programRows.forEach(row => {
+            const percentage = totalStudents ? ((row.count / totalStudents) * 100) : 0;
+            const label = row.mqa ? `${row.name} (${row.mqa})` : row.name;
+            const tr = document.createElement('tr');
+            tr.innerHTML = `
+              <td class="py-2 pr-4">${label}</td>
+              <td class="py-2 pr-4 font-semibold">${row.count}</td>
+              <td class="py-2 pr-4 text-sm text-gray-600">${percentage.toFixed(1)}%</td>
+            `;
+            programBody.appendChild(tr);
+          });
+        }
+      }
+      if (programEmpty && !programRows.length){
+        programEmpty.textContent = 'No enrollment data yet.';
+      }
     }
 
     function rebuildLedgerFilter(select, options, placeholder, previousValue){
@@ -1458,7 +1728,10 @@
         })
         .sort((a,b)=>a.label.localeCompare(b.label));
       const agentOptions = agents
-        .map(a => ({ value: a.id, label: `${formatAgentCode(a.id)} — ${a.name || `Agent #${a.id}`}` }))
+        .map(a => ({
+          value: String(a.id),
+          label: `${formatAgentCode(a.id)} — ${a.name || `Agent #${a.id}`} (${getAgentTypeLabel(a.type)})`
+        }))
         .sort((a,b)=>a.label.localeCompare(b.label));
 
       const prevProgram = programSelect.value;
@@ -1528,7 +1801,7 @@
         const fg = student.feeGroupId ? feeGroupMap.get(student.feeGroupId) : null;
         const agentRecord = fg ? agentMap.get(fg.agentId) : null;
         const agentName = agentRecord
-          ? `${agentRecord.name || '-'} (${formatAgentCode(agentRecord.id || fg.agentId)})`
+          ? `${agentRecord.name || '-'} (${formatAgentCode(agentRecord.id || fg.agentId)} · ${getAgentTypeLabel(agentRecord.type)})`
           : '-';
         const programRecord = student.programId ? programMap.get(student.programId) : null;
         const programName = programRecord
@@ -1606,6 +1879,7 @@
           ? `Discounts Granted: RM ${formatMoney(totalDiscountAmount)}`
           : 'Discounts Granted: RM 0.00';
       }
+      await renderDashboard();
     }
 
     // ---------------------- Finance Helpers ----------------------
@@ -2519,12 +2793,15 @@
       const data = Object.fromEntries(fd.entries());
       const name = (data.name || '').toString().trim();
       if (!name) return alert('Agent name is required');
+      const rawType = (data.type || 'external').toString().trim().toLowerCase();
+      const type = rawType === 'internal' ? 'internal' : 'external';
       const payload = {
         name,
         email: (data.email || '').toString().trim(),
         phone: (data.phone || '').toString().trim(),
         agreement: (data.agreement || '').toString().trim(),
-        agreementLink: (data.agreementLink || '').toString().trim()
+        agreementLink: (data.agreementLink || '').toString().trim(),
+        type
       };
       const isEditingAgent = !!editingAgentId;
       if (isEditingAgent){
@@ -2565,6 +2842,9 @@
           form.elements['phone'].value = record.phone || '';
           form.elements['agreementLink'].value = record.agreementLink || '';
           form.elements['agreement'].value = record.agreement || '';
+          if (form.elements['type']){
+            form.elements['type'].value = record.type === 'internal' ? 'internal' : 'external';
+          }
           editingAgentId = id;
           setAgentFormMode(true);
           window.scrollTo({ top: form.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
@@ -2618,6 +2898,34 @@
       await renderLedgerOverview();
       alert('Fee group saved.');
     });
+
+    const internalTemplateSelect = document.getElementById('fee-internal-template');
+    if (internalTemplateSelect){
+      internalTemplateSelect.addEventListener('change', () => {
+        const templateId = Number(internalTemplateSelect.value);
+        if (!templateId) return;
+        const template = internalFeeTemplateMap.get(templateId);
+        if (!template) return;
+        const form = document.getElementById('form-feegroup');
+        if (!form) return;
+        const toInputValue = (value) => {
+          const num = Number(value || 0);
+          return Number.isFinite(num) ? num.toString() : '0';
+        };
+        if (form.elements['registrationFee']){
+          form.elements['registrationFee'].value = toInputValue(template.registrationFee);
+        }
+        if (form.elements['tuitionFee']){
+          form.elements['tuitionFee'].value = toInputValue(template.tuitionFee);
+        }
+        if (form.elements['convocationFee']){
+          form.elements['convocationFee'].value = toInputValue(template.convocationFee);
+        }
+        if (form.elements['programId'] && !form.elements['programId'].value && template.programId){
+          form.elements['programId'].value = template.programId;
+        }
+      });
+    }
 
     const formPayment = document.getElementById('form-payment');
     if (formPayment){
@@ -3047,7 +3355,7 @@
       // Agents
       XLSX.utils.book_append_sheet(
         wb,
-        XLSX.utils.aoa_to_sheet(aoaFromObjects(agents, ['id','name','email','phone','agreementLink','agreement','status','terminatedAt','terminatedReason'])),
+        XLSX.utils.aoa_to_sheet(aoaFromObjects(agents, ['id','name','email','phone','agreementLink','agreement','status','type','terminatedAt','terminatedReason'])),
         'Agents'
       );
 
@@ -3167,6 +3475,8 @@
           if (!name) continue;
           const rawStatus = (r.status || 'Active').toString().trim().toLowerCase();
           const status = rawStatus === 'terminated' ? 'Terminated' : 'Active';
+          const typeRaw = (r.type || r.agentType || '').toString().trim().toLowerCase();
+          const type = typeRaw === 'internal' ? 'internal' : 'external';
           await db.agents.add({
             name,
             email: (r.email || '').toString().trim(),
@@ -3174,6 +3484,7 @@
             agreement: (r.agreement || '').toString().trim(),
             agreementLink: (r.agreementLink || r.link || '').toString().trim(),
             status,
+            type,
             terminatedAt: status === 'Terminated' ? (r.terminatedAt || '').toString().trim() : '',
             terminatedReason: status === 'Terminated' ? (r.terminatedReason || '').toString().trim() : ''
           });
@@ -3641,10 +3952,11 @@
         agreementLink:a.agreementLink,
         agreement:a.agreement,
         status:a.status,
+        type:(a.type || 'external'),
         terminatedAt:a.terminatedAt,
         terminatedReason:a.terminatedReason
       }));
-      exportSheet('Agents', view, ['id','name','email','phone','agreementLink','agreement','status','terminatedAt','terminatedReason']);
+      exportSheet('Agents', view, ['id','name','email','phone','agreementLink','agreement','status','type','terminatedAt','terminatedReason']);
     });
 
     document.getElementById('export-feegroups').addEventListener('click', async () => {
