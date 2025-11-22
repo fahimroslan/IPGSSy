@@ -1,0 +1,45 @@
+:root {
+  --accent-primary: #2563eb;
+  --accent-success: #059669;
+  --accent-warning: #d97706;
+  --accent-danger: #dc2626;
+  --card-border: #e5e7eb;
+  --muted-text: #6b7280;
+}
+
+/* Subtle card styling to complement Tailwind utility classes */
+.card {
+  border: 1px solid var(--card-border);
+  border-radius: 0.75rem;
+  background: #fff;
+  box-shadow: 0 10px 25px -20px rgba(0, 0, 0, 0.25);
+}
+
+/* Table tweaks: consistent padding and header weight */
+.table-compact th,
+.table-compact td {
+  padding: 0.5rem 1rem;
+}
+
+.table-compact th {
+  font-weight: 600;
+  color: #374151;
+}
+
+/* Status coloring helpers */
+.status-open {
+  color: var(--accent-warning);
+}
+
+.status-partial {
+  color: #0f766e;
+}
+
+.status-paid {
+  color: var(--accent-success);
+}
+
+/* Muted helper */
+.muted {
+  color: var(--muted-text);
+}
