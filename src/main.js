@@ -1560,52 +1560,55 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       });
     }
 
-    document.getElementById('form-student').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      const data = Object.fromEntries(fd.entries());
-      if (!data.name) return alert('Name is required');
-      const normalizedReg = sanitizeRegistrationDate(data.registrationDate);
-      const existingStudent = editingStudentId ? await db.students.get(editingStudentId) : null;
-      const payload = {
-        studentId: data.studentId?.trim() || undefined,
-        name: data.name.trim(),
-        email: data.email?.trim(),
-        phone: data.phone?.trim(),
-        registrationDate: normalizedReg,
-        intake: data.intake?.trim(),
-        programId: data.programId ? Number(data.programId) : null,
-        feeGroupId: data.feeGroupId ? Number(data.feeGroupId) : null,
-        paymentPlan: data.paymentPlan || 'lump',
-        status: data.status || 'Active'
-      };
-      if (editingStudentId){
-        await db.students.update(editingStudentId, payload);
-        if (payload.feeGroupId){
-          await ensureInvoicesForFeeGroup(editingStudentId, payload.feeGroupId);
+    const studentFormEl = document.getElementById('form-student');
+    if (studentFormEl){
+      studentFormEl.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const data = Object.fromEntries(fd.entries());
+        if (!data.name) return alert('Name is required');
+        const normalizedReg = sanitizeRegistrationDate(data.registrationDate);
+        const existingStudent = editingStudentId ? await db.students.get(editingStudentId) : null;
+        const payload = {
+          studentId: data.studentId?.trim() || undefined,
+          name: data.name.trim(),
+          email: data.email?.trim(),
+          phone: data.phone?.trim(),
+          registrationDate: normalizedReg,
+          intake: data.intake?.trim(),
+          programId: data.programId ? Number(data.programId) : null,
+          feeGroupId: data.feeGroupId ? Number(data.feeGroupId) : null,
+          paymentPlan: data.paymentPlan || 'lump',
+          status: data.status || 'Active'
+        };
+        if (editingStudentId){
+          await db.students.update(editingStudentId, payload);
+          if (payload.feeGroupId){
+            await ensureInvoicesForFeeGroup(editingStudentId, payload.feeGroupId);
+          }
+          if (existingStudent && existingStudent.registrationDate !== normalizedReg){
+            await adjustInvoicesForRegistrationDate(editingStudentId, normalizedReg);
+          }
+          await syncStudentCourses(editingStudentId, payload.programId);
+          alert('Student updated.');
+        } else {
+          const newId = await db.students.add(payload);
+          if (payload.feeGroupId){
+            await ensureInvoicesForFeeGroup(newId, payload.feeGroupId);
+            await adjustInvoicesForRegistrationDate(newId, normalizedReg);
+          }
+          await syncStudentCourses(newId, payload.programId);
+          alert('Student saved.');
         }
-        if (existingStudent && existingStudent.registrationDate !== normalizedReg){
-          await adjustInvoicesForRegistrationDate(editingStudentId, normalizedReg);
-        }
-        await syncStudentCourses(editingStudentId, payload.programId);
-        alert('Student updated.');
-      } else {
-        const newId = await db.students.add(payload);
-        if (payload.feeGroupId){
-          await ensureInvoicesForFeeGroup(newId, payload.feeGroupId);
-          await adjustInvoicesForRegistrationDate(newId, normalizedReg);
-        }
-        await syncStudentCourses(newId, payload.programId);
-        alert('Student saved.');
-      }
-      editingStudentId = null;
-      setStudentFormMode(false);
-      e.target.reset();
-      ensureStudentRegistrationDefault();
-      await renderStudents();
-      await loadProgramsIntoSelects();
-      await renderLedgerOverview();
-    });
+        editingStudentId = null;
+        setStudentFormMode(false);
+        e.target.reset();
+        ensureStudentRegistrationDefault();
+        await renderStudents();
+        await loadProgramsIntoSelects();
+        await renderLedgerOverview();
+      });
+    }
 
     if (studentCancelBtn){
       studentCancelBtn.addEventListener('click', () => {
