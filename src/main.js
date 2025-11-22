@@ -37,6 +37,15 @@ import {
 } from './services/excelService.js';
 import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
     ensureStudentRegistrationDefault();
+    const programLookup = new Map();
+    const SUSPENDED_STATUS = 'suspended';
+    const ACADEMIC_HOLD_STATUSES = new Set(['defer','withdraw','suspended']);
+    const isSuspendedStatus = (status) => (status || '').toString().toLowerCase() === SUSPENDED_STATUS;
+    const isAcademicHoldStatus = (status) => ACADEMIC_HOLD_STATUSES.has((status || '').toString().toLowerCase());
+
+    let allStudentsCache = [];
+    let currentLedgerStudentId = null;
+    let currentProfileStudentId = null;
 
 
     async function populateResultCourses(studentId){
@@ -90,6 +99,12 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
     async function loadProgramsIntoSelects(){
       await ensureStudentCoursesSeeded();
       const programs = await db.programs.toArray();
+      programLookup.clear();
+      programs.forEach(p => {
+        if (p && p.id !== undefined){
+          programLookup.set(p.id, p);
+        }
+      });
       const pSel = document.getElementById('student-program');
       const repSel = document.getElementById('report-student');
       const rStuSel = document.getElementById('result-student');
@@ -116,14 +131,11 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
 
       // Students into results & reports selections
       const students = await db.students.toArray();
+      allStudentsCache = students.slice();
       if (rStuSel){ rStuSel.innerHTML = '<option value="">Select Student</option>'; }
       if (repSel){ repSel.innerHTML = '<option value="">Select Student</option>'; }
       const paymentStuSel = document.getElementById('payment-student');
-      const ledgerStuSel = document.getElementById('ledger-student');
-      const profileStuSel = document.getElementById('profile-student');
       if (paymentStuSel){ paymentStuSel.innerHTML = '<option value="">Select Student</option>'; }
-      if (ledgerStuSel){ ledgerStuSel.innerHTML = '<option value="">Select Student</option>'; }
-      if (profileStuSel){ profileStuSel.innerHTML = '<option value="">Select Student</option>'; }
       for (const s of students){
         if (rStuSel){
           const o1 = document.createElement('option');
@@ -143,24 +155,226 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
           o3.textContent = s.name;
           paymentStuSel.appendChild(o3);
         }
-        if (ledgerStuSel){
-          const o4 = document.createElement('option');
-          o4.value = s.id;
-          o4.textContent = s.name;
-          ledgerStuSel.appendChild(o4);
-        }
-        if (profileStuSel){
-          const o5 = document.createElement('option');
-          o5.value = s.id;
-          o5.textContent = s.name;
-          profileStuSel.appendChild(o5);
-        }
-      }
-      if (profileStuSel){
-        profileStuSel.value = currentProfileStudentId ? String(currentProfileStudentId) : '';
       }
 
       await populateResultCourses(rStuSel?.value || '');
+      await ensureLedgerStudentSelectionValid();
+      await ensureProfileSelectionValid();
+      const profileSearchInput = document.getElementById('profile-student-search');
+      if (profileSearchInput){
+        renderProfileSearchResults(profileSearchInput.value || '');
+      }
+    }
+
+    function getStudentSearchMatches(query){
+      const normalized = (query || '').toString().trim().toLowerCase();
+      if (!normalized) return allStudentsCache.slice();
+      return allStudentsCache.filter(student => {
+        if (!student) return false;
+        const haystack = [
+          student.name || '',
+          student.studentId || '',
+          student.email || '',
+          student.phone || ''
+        ].join(' ').toLowerCase();
+        return haystack.includes(normalized);
+      });
+    }
+
+    function programNameForStudent(student){
+      if (!student || student.programId === undefined || student.programId === null) return '-';
+      const program = programLookup.get(student.programId);
+      if (!program) return '-';
+      const base = program.name || `Program #${program.id}`;
+      return program.mqaCode ? `${base} (${program.mqaCode})` : base;
+    }
+
+    function updateProfileSelectionLabel(student){
+      const label = document.getElementById('profile-selection-label');
+      if (label){
+        const suspended = student && isSuspendedStatus(student.status);
+        label.textContent = student
+          ? `Viewing: ${student.name || 'Unnamed'}${student.studentId ? ` (${student.studentId})` : ''}`
+          : 'No student selected.';
+        label.classList.toggle('text-red-600', !!suspended);
+        label.classList.toggle('text-gray-500', !suspended);
+      }
+      const clearBtn = document.getElementById('profile-clear-selection');
+      if (clearBtn){
+        clearBtn.classList.toggle('hidden', !student);
+        clearBtn.disabled = !student;
+      }
+    }
+
+    function updateProfileSearchSelectionHighlight(){
+      const rows = document.querySelectorAll('#profile-search-rows tr[data-student-id]');
+      rows.forEach(row => {
+        const isActive = currentProfileStudentId && Number(row.dataset.studentId) === currentProfileStudentId;
+        row.classList.toggle('bg-indigo-50', !!isActive);
+        row.classList.toggle('ring-2', !!isActive);
+        row.classList.toggle('ring-indigo-200', !!isActive);
+      });
+    }
+
+    function updateStudentsListSelectionHighlight(){
+      const cards = document.querySelectorAll('#students-list [data-student-id]');
+      cards.forEach(card => {
+        const isActive = currentProfileStudentId && Number(card.dataset.studentId) === currentProfileStudentId;
+        card.classList.toggle('ring-2', !!isActive);
+        card.classList.toggle('ring-indigo-300', !!isActive);
+      });
+    }
+
+    async function ensureProfileSelectionValid(){
+      if (!currentProfileStudentId){
+        updateProfileSelectionLabel(null);
+        updateProfileSearchSelectionHighlight();
+        updateStudentsListSelectionHighlight();
+        return;
+      }
+      const match = allStudentsCache.find(s => s && s.id === currentProfileStudentId) || null;
+      if (!match){
+        currentProfileStudentId = null;
+        updateProfileSelectionLabel(null);
+        updateProfileSearchSelectionHighlight();
+        updateStudentsListSelectionHighlight();
+        await renderStudentProfile('');
+      } else {
+        updateProfileSelectionLabel(match);
+        updateProfileSearchSelectionHighlight();
+        updateStudentsListSelectionHighlight();
+      }
+    }
+
+    function renderProfileSearchResults(query){
+      const rowsEl = document.getElementById('profile-search-rows');
+      const container = document.getElementById('profile-search-results');
+      const emptyEl = document.getElementById('profile-empty');
+      if (!rowsEl || !container || !emptyEl) return;
+      const trimmed = (query || '').toString().trim();
+      if (!trimmed){
+        rowsEl.innerHTML = '';
+        container.classList.add('hidden');
+        emptyEl.textContent = '';
+        updateProfileSearchSelectionHighlight();
+        return;
+      }
+      const matches = getStudentSearchMatches(trimmed);
+      if (!matches.length){
+        rowsEl.innerHTML = '';
+        container.classList.add('hidden');
+        emptyEl.textContent = `No students found for "${trimmed}".`;
+        return;
+      }
+      emptyEl.textContent = 'Click a row below to view the student profile.';
+      container.classList.remove('hidden');
+      rowsEl.innerHTML = '';
+      matches.slice(0, 25).forEach(student => {
+        const tr = document.createElement('tr');
+        tr.dataset.studentId = student.id;
+        tr.className = 'cursor-pointer hover:bg-gray-50';
+        if (currentProfileStudentId === student.id){
+          tr.classList.add('bg-indigo-50');
+        }
+        tr.innerHTML = `
+          <td class="py-2 pr-4 ${isSuspendedStatus(student.status) ? 'text-red-600 font-semibold' : ''}">${student.name || '-'}</td>
+          <td class="py-2 pr-4">${student.studentId || '-'}</td>
+          <td class="py-2 pr-4">${programNameForStudent(student)}</td>
+          <td class="py-2 pr-4">${student.status || '-'}</td>
+        `;
+        rowsEl.appendChild(tr);
+      });
+      updateProfileSearchSelectionHighlight();
+    }
+
+    async function setCurrentProfileStudent(studentId, meta = {}){
+      const numericId = Number(studentId);
+      if (!studentId || Number.isNaN(numericId)){
+        if (currentProfileStudentId !== null){
+          currentProfileStudentId = null;
+          updateProfileSelectionLabel(null);
+          updateProfileSearchSelectionHighlight();
+          await renderStudentProfile('');
+        }
+        return;
+      }
+      const student = meta.student || allStudentsCache.find(s => s && s.id === numericId) || null;
+      currentProfileStudentId = numericId;
+      updateProfileSelectionLabel(student);
+      await renderStudentProfile(numericId);
+      updateProfileSearchSelectionHighlight();
+      updateStudentsListSelectionHighlight();
+    }
+
+    function updateLedgerStudentActiveLabel(student){
+      const label = document.getElementById('ledger-student-active-label');
+      if (label){
+        const suspended = student && isSuspendedStatus(student.status);
+        label.textContent = student
+          ? `Selected: ${student.name || 'Unnamed'}${student.studentId ? ` (${student.studentId})` : ''}`
+          : 'No student selected. Click a student row above to load their ledger.';
+        label.classList.toggle('text-red-600', !!suspended);
+        label.classList.toggle('text-gray-500', !suspended);
+      }
+      const clearBtn = document.getElementById('ledger-clear-selection');
+      if (clearBtn){
+        clearBtn.disabled = !student;
+      }
+    }
+
+    async function ensureLedgerStudentSelectionValid(){
+      if (!currentLedgerStudentId) {
+        updateLedgerStudentActiveLabel(null);
+        updateLedgerOverviewSelectionStyles();
+        return;
+      }
+      const match = allStudentsCache.find(s => s && s.id === currentLedgerStudentId) || null;
+      if (!match){
+        currentLedgerStudentId = null;
+        updateLedgerStudentActiveLabel(null);
+        await renderLedger('');
+        updateLedgerOverviewSelectionStyles();
+      } else {
+        updateLedgerStudentActiveLabel(match);
+        updateLedgerOverviewSelectionStyles();
+      }
+    }
+
+    function updateLedgerOverviewSelectionStyles(){
+      const rows = document.querySelectorAll('#rows-ledger-overview tr[data-student-id]');
+      rows.forEach(row => {
+        const isActive = currentLedgerStudentId && Number(row.dataset.studentId) === currentLedgerStudentId;
+        row.classList.toggle('ring-2', !!isActive);
+        row.classList.toggle('ring-indigo-200', !!isActive);
+      });
+    }
+
+    async function setCurrentLedgerStudent(studentId, meta = {}){
+      const numericId = Number(studentId);
+      if (!studentId || Number.isNaN(numericId)){
+        if (currentLedgerStudentId !== null){
+          currentLedgerStudentId = null;
+          selectedLedgerInvoiceId = null;
+          updateLedgerStudentActiveLabel(null);
+          await renderLedger('');
+          updateLedgerOverviewSelectionStyles();
+        }
+        return;
+      }
+      const fallback = meta.name ? { id: numericId, name: meta.name, studentId: meta.studentCode || '' } : null;
+      const match = allStudentsCache.find(s => s && s.id === numericId) || fallback;
+      if (!match){
+        return;
+      }
+      if (currentLedgerStudentId === numericId){
+        updateLedgerStudentActiveLabel(match);
+        return;
+      }
+      currentLedgerStudentId = numericId;
+      selectedLedgerInvoiceId = null;
+      updateLedgerStudentActiveLabel(match);
+      await renderLedger(numericId);
+      updateLedgerOverviewSelectionStyles();
     }
 
     const resultStudentSelect = document.getElementById('result-student');
@@ -295,11 +509,17 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       await refreshStudentProfileIfActive();
     }
 
-    async function renderStudents(){
+    async function renderStudents(options = {}){
+      const { skipSync = false } = options;
+      const searchInput = document.getElementById('students-search');
       await renderStudentsView({
         loadProgramsIntoSelects,
-        refreshStudentProfileIfActive
+        refreshStudentProfileIfActive,
+        filterText: searchInput ? searchInput.value : '',
+        selectedStudentId: currentProfileStudentId,
+        skipSync
       });
+      updateStudentsListSelectionHighlight();
     }
 
     async function renderCourses(){
@@ -481,7 +701,10 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
     // Student profile renderer now lives in src/ui/render/profile.js
     async function renderStudentProfile(studentId){
       await renderStudentProfileView(studentId, (id) => {
-        currentProfileStudentId = id;
+        currentProfileStudentId = id || null;
+        const match = allStudentsCache.find(s => s && s.id === currentProfileStudentId) || null;
+        updateProfileSelectionLabel(match);
+        updateProfileSearchSelectionHighlight();
       });
     }
 
@@ -516,7 +739,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
     async function renderLedgerOverview(){
       const programSelect = document.getElementById('ledger-filter-program');
       const agentSelect = document.getElementById('ledger-filter-agent');
-      const studentSelect = document.getElementById('ledger-filter-student');
+      const studentSearchInput = document.getElementById('ledger-filter-student-search');
       const tableBody = document.getElementById('rows-ledger-overview');
       const emptyEl = document.getElementById('ledger-overview-empty');
       const cards = {
@@ -530,7 +753,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
         overdueNote: document.getElementById('ledger-card-overdue-note'),
         discountSummary: document.getElementById('ledger-discount-summary')
       };
-      if (!programSelect || !agentSelect || !studentSelect || !tableBody || !emptyEl) return;
+      if (!programSelect || !agentSelect || !tableBody || !emptyEl) return;
 
       const [students, programs, agents, feeGroups, invoices, rawPayments] = await Promise.all([
         db.students.toArray(),
@@ -562,28 +785,16 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
 
       const prevProgram = programSelect.value;
       const prevAgent = agentSelect.value;
-      const prevStudent = studentSelect.value;
 
       const currentProgram = rebuildLedgerFilter(programSelect, programOptions, 'All Programs', prevProgram);
       const currentAgent = rebuildLedgerFilter(agentSelect, agentOptions, 'All Agents', prevAgent);
 
-      const studentOptionsSource = students
-        .filter(s => {
-          const matchesProgram = !currentProgram || String(s.programId || '') === currentProgram;
-          const fg = s.feeGroupId ? feeGroupMap.get(s.feeGroupId) : null;
-          const agentId = fg?.agentId ? String(fg.agentId) : '';
-          const matchesAgent = !currentAgent || agentId === currentAgent;
-          return matchesProgram && matchesAgent;
-        })
-        .map(s => ({ value: s.id, label: s.name || `Student #${s.id}` }))
-        .sort((a,b)=>a.label.localeCompare(b.label));
-
-      const currentStudent = rebuildLedgerFilter(studentSelect, studentOptionsSource, 'All Students', prevStudent);
+      const studentQuery = (studentSearchInput?.value || '').toString().trim().toLowerCase();
 
       const filters = {
         program: currentProgram,
         agent: currentAgent,
-        student: currentStudent
+        studentText: studentQuery
       };
 
       const filteredStudents = students.filter(student => {
@@ -591,7 +802,12 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
         const fg = student.feeGroupId ? feeGroupMap.get(student.feeGroupId) : null;
         const agentId = fg?.agentId ? String(fg.agentId) : '';
         const matchesAgent = !filters.agent || agentId === filters.agent;
-        const matchesStudent = !filters.student || String(student.id) === filters.student;
+        const matchesStudent = !filters.studentText || [
+          student.name || '',
+          student.studentId || '',
+          student.email || '',
+          student.phone || ''
+        ].join(' ').toLowerCase().includes(filters.studentText);
         return matchesProgram && matchesAgent && matchesStudent;
       });
 
@@ -652,9 +868,21 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
 
       rows.forEach(row => {
         const tr = document.createElement('tr');
+        tr.dataset.studentId = row.student.id;
+        tr.dataset.studentName = row.student.name || '';
+        tr.dataset.studentCode = row.student.studentId || '';
+        const suspended = isSuspendedStatus(row.student.status);
+        const hasOverdue = row.overdue > 0;
+        tr.className = `cursor-pointer transition ${
+          suspended
+            ? 'bg-red-50 hover:bg-red-100 text-red-700'
+            : hasOverdue
+              ? 'bg-amber-50 hover:bg-amber-100 text-amber-800'
+              : 'hover:bg-gray-50'
+        }`;
         tr.innerHTML = `
           <td class="py-2 pr-4">${row.index}</td>
-          <td class="py-2 pr-4">${row.student.name || '-'}</td>
+          <td class="py-2 pr-4 ${suspended ? 'text-red-600 font-semibold' : ''}">${row.student.name || '-'}</td>
           <td class="py-2 pr-4">${row.student.studentId || '-'}</td>
           <td class="py-2 pr-4">${row.student.programId ? (programMap.get(row.student.programId)?.name || '-') : '-'}</td>
           <td class="py-2 pr-4">${row.agent ? `${row.agent.name || '-'} (${formatAgentCode(row.agent.id)})` : '-'}</td>
@@ -692,6 +920,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       if (cards.pendingNote) cards.pendingNote.textContent = totals.pending ? 'Outstanding balance' : 'No pending invoices';
       if (cards.overdueNote) cards.overdueNote.textContent = totals.overdue ? 'Overdue amounts present' : 'No overdue invoices';
       if (cards.discountSummary) cards.discountSummary.textContent = `Discounts Granted: RM ${formatMoney(totals.discounts)}`;
+      updateLedgerOverviewSelectionStyles();
     }
     async function ensureInvoicesForFeeGroup(studentId, feeGroupId){
       if (!studentId || !feeGroupId) return;
@@ -1269,7 +1498,6 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
     });
 
     let editingStudentId = null;
-    let currentProfileStudentId = null;
     const studentSubmitBtn = document.getElementById('student-submit');
     const studentCancelBtn = document.getElementById('student-cancel-edit');
     const studentEditingLabel = document.getElementById('student-editing-label');
@@ -1445,67 +1673,94 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
     }
 
     // Student table actions (edit/delete)
-    const studentTable = document.getElementById('tbl-students');
-    if (studentTable){
-      studentTable.addEventListener('click', async (ev) => {
+    const studentsListEl = document.getElementById('students-list');
+    if (studentsListEl){
+      studentsListEl.addEventListener('click', async (ev) => {
         const target = ev.target;
         if (!(target instanceof HTMLElement)) return;
-        const action = target.dataset.action;
-        const id = target.dataset.id ? Number(target.dataset.id) : null;
-        if (!action || !id) return;
-        if (action === 'view-profile'){
-          currentProfileStudentId = id;
-          await renderStudentProfile(id);
-          const sel = document.getElementById('profile-student');
-          if (sel) sel.value = String(id);
+        const actionBtn = target.closest('button[data-action]');
+        if (actionBtn){
+          const action = actionBtn.dataset.action;
+          const id = actionBtn.dataset.id ? Number(actionBtn.dataset.id) : null;
+          if (!action || !id) return;
+          if (action === 'view-profile'){
+            const studentRecord = await db.students.get(id);
+            const searchInput = document.getElementById('profile-student-search');
+            if (searchInput && studentRecord){
+              searchInput.value = studentRecord.name || studentRecord.studentId || '';
+              renderProfileSearchResults(searchInput.value);
+            }
+            await setCurrentProfileStudent(id, { student: studentRecord });
+            const profileTabBtn = document.querySelector('.tab[data-tab="profile"]');
+            if (profileTabBtn){
+              profileTabBtn.click();
+            }
+            return;
+          }
+          if (action === 'edit-student'){
+            const s = await db.students.get(id);
+            if (!s) return;
+            await loadProgramsIntoSelects();
+            const form = document.getElementById('form-student');
+            form.elements['studentId'].value = s.studentId || '';
+            form.elements['name'].value = s.name || '';
+            form.elements['email'].value = s.email || '';
+            form.elements['phone'].value = s.phone || '';
+            form.elements['registrationDate'].value = s.registrationDate || '';
+            form.elements['intake'].value = s.intake || '';
+            form.elements['programId'].value = s.programId || '';
+            form.elements['feeGroupId'].value = s.feeGroupId || '';
+            form.elements['paymentPlan'].value = s.paymentPlan || 'lump';
+            form.elements['status'].value = s.status || 'Active';
+            editingStudentId = id;
+            setStudentFormMode(true);
+            window.scrollTo({ top: form.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
+          } else if (action === 'delete-student'){
+            const confirmDel = confirm('Delete this student and related invoices/payments/results?');
+            if (!confirmDel) return;
+            await db.transaction('rw', db.students, db.results, db.payments, db.invoices, db.studentCourses, async () => {
+              await db.students.delete(id);
+              await db.results.where('studentIdFk').equals(id).delete();
+              await db.payments.where('studentIdFk').equals(id).delete();
+              await db.invoices.where('studentIdFk').equals(id).delete();
+              await db.studentCourses.where('studentIdFk').equals(id).delete();
+            });
+            if (currentLedgerStudentId === id){
+              currentLedgerStudentId = null;
+              selectedLedgerInvoiceId = null;
+              updateLedgerStudentActiveLabel(null);
+              await renderLedger('');
+              updateLedgerOverviewSelectionStyles();
+            }
+            if (currentProfileStudentId === id){
+              currentProfileStudentId = null;
+              updateProfileSelectionLabel(null);
+              updateProfileSearchSelectionHighlight();
+              await renderStudentProfile('');
+            }
+            editingStudentId = null;
+            setStudentFormMode(false);
+            document.getElementById('form-student').reset();
+            ensureStudentRegistrationDefault();
+            await renderStudents();
+            await renderResults();
+            await renderPayments(renderLedgerOverview);
+            await renderLedgerOverview();
+            alert('Student deleted.');
+          }
+          return;
+        }
+
+        const card = target.closest('[data-student-id]');
+        if (card){
+          const id = Number(card.dataset.studentId);
+          if (!Number.isFinite(id)) return;
+          const studentRecord = await db.students.get(id);
+          await setCurrentProfileStudent(id, { student: studentRecord });
           const profileTabBtn = document.querySelector('.tab[data-tab="profile"]');
           if (profileTabBtn){
             profileTabBtn.click();
           }
-          return;
-        }
-        if (action === 'edit-student'){
-          const s = await db.students.get(id);
-          if (!s) return;
-          await loadProgramsIntoSelects();
-          const form = document.getElementById('form-student');
-          form.elements['studentId'].value = s.studentId || '';
-          form.elements['name'].value = s.name || '';
-          form.elements['email'].value = s.email || '';
-          form.elements['phone'].value = s.phone || '';
-          form.elements['registrationDate'].value = s.registrationDate || '';
-          form.elements['intake'].value = s.intake || '';
-          form.elements['programId'].value = s.programId || '';
-          form.elements['feeGroupId'].value = s.feeGroupId || '';
-          form.elements['paymentPlan'].value = s.paymentPlan || 'lump';
-          form.elements['status'].value = s.status || 'Active';
-          editingStudentId = id;
-          setStudentFormMode(true);
-          window.scrollTo({ top: form.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
-        } else if (action === 'delete-student'){
-          const confirmDel = confirm('Delete this student and related invoices/payments/results?');
-          if (!confirmDel) return;
-          await db.transaction('rw', db.students, db.results, db.payments, db.invoices, db.studentCourses, async () => {
-            await db.students.delete(id);
-            await db.results.where('studentIdFk').equals(id).delete();
-            await db.payments.where('studentIdFk').equals(id).delete();
-            await db.invoices.where('studentIdFk').equals(id).delete();
-            await db.studentCourses.where('studentIdFk').equals(id).delete();
-          });
-          const ledgerSel = document.getElementById('ledger-student');
-          if (ledgerSel && ledgerSel.value === String(id)){
-            ledgerSel.value = '';
-            await renderLedger('');
-          }
-          editingStudentId = null;
-          setStudentFormMode(false);
-          document.getElementById('form-student').reset();
-          ensureStudentRegistrationDefault();
-          await renderStudents();
-          await renderResults();
-          await renderPayments(renderLedgerOverview);
-          await renderLedgerOverview();
-          alert('Student deleted.');
         }
       });
     }
@@ -1545,7 +1800,10 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
     });
 
     document.getElementById('refresh-programs').addEventListener('click', renderPrograms);
-    document.getElementById('refresh-students').addEventListener('click', renderStudents);
+    const refreshStudentsBtn = document.getElementById('refresh-students');
+    if (refreshStudentsBtn){
+      refreshStudentsBtn.addEventListener('click', () => renderStudents());
+    }
     document.getElementById('refresh-results').addEventListener('click', renderResults);
 
     let editingAgentId = null;
@@ -1743,7 +2001,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       });
     }
 
-    const ledgerFilterIds = ['ledger-filter-program','ledger-filter-agent','ledger-filter-student'];
+    const ledgerFilterIds = ['ledger-filter-program','ledger-filter-agent'];
     ledgerFilterIds.forEach(id => {
       const el = document.getElementById(id);
       if (!el) return;
@@ -1751,6 +2009,12 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
         renderLedgerOverview();
       });
     });
+    const ledgerFilterSearchInput = document.getElementById('ledger-filter-student-search');
+    if (ledgerFilterSearchInput){
+      ledgerFilterSearchInput.addEventListener('input', () => {
+        renderLedgerOverview();
+      });
+    }
     const ledgerResetBtn = document.getElementById('ledger-filter-reset');
     if (ledgerResetBtn){
       ledgerResetBtn.addEventListener('click', () => {
@@ -1758,20 +2022,30 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
           const el = document.getElementById(id);
           if (el) el.value = '';
         });
+        if (ledgerFilterSearchInput){
+          ledgerFilterSearchInput.value = '';
+        }
         renderLedgerOverview();
       });
     }
 
-    // Ledger: student selection
-    const ledgerStudentSel = document.getElementById('ledger-student');
-    if (ledgerStudentSel){
-      ledgerStudentSel.addEventListener('change', async (e)=>{
-        selectedLedgerInvoiceId = null;
-        await renderLedger(e.target.value);
-        const form = document.getElementById('form-ledger-payment');
-        if (form) form.reset();
-        editingLedgerPaymentId = null;
-        setLedgerPaymentFormMode(false);
+    const ledgerOverviewRowsEl = document.getElementById('rows-ledger-overview');
+    if (ledgerOverviewRowsEl){
+      ledgerOverviewRowsEl.addEventListener('click', async (e) => {
+        const row = e.target.closest('tr[data-student-id]');
+        if (!row) return;
+        const sid = Number(row.dataset.studentId);
+        const meta = {
+          name: row.dataset.studentName || '',
+          studentCode: row.dataset.studentCode || ''
+        };
+        await setCurrentLedgerStudent(sid, meta);
+      });
+    }
+    const ledgerClearSelectionBtn = document.getElementById('ledger-clear-selection');
+    if (ledgerClearSelectionBtn){
+      ledgerClearSelectionBtn.addEventListener('click', async () => {
+        await setCurrentLedgerStudent(null);
       });
     }
 
@@ -1782,9 +2056,8 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
         const row = e.target.closest('tr[data-invoice-id]');
         if (!row) return;
         selectedLedgerInvoiceId = row.dataset.invoiceId ? Number(row.dataset.invoiceId) : null;
-        const sid = document.getElementById('ledger-student')?.value;
-        if (sid){
-          await renderLedger(sid);
+        if (currentLedgerStudentId){
+          await renderLedger(currentLedgerStudentId);
         }
       });
     }
@@ -1800,10 +2073,9 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
         if (target.classList.contains('btn-payment-edit')){
           const payment = await db.payments.get(pid);
           if (!payment || payment.deleted) return;
-          const currentStudentId = document.getElementById('ledger-student')?.value;
           selectedLedgerInvoiceId = payment.invoiceIdFk || null;
-          if (currentStudentId){
-            await renderLedger(currentStudentId);
+          if (currentLedgerStudentId){
+            await renderLedger(currentLedgerStudentId);
           }
           const form = document.getElementById('form-ledger-payment');
           if (form){
@@ -1820,29 +2092,81 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
           await deleteLedgerPayment(pid);
           editingLedgerPaymentId = null;
           setLedgerPaymentFormMode(false);
-          const sid = document.getElementById('ledger-student')?.value;
-          if (sid){
-            await renderLedger(sid);
+          if (currentLedgerStudentId){
+            await renderLedger(currentLedgerStudentId);
             await renderPayments(renderLedgerOverview);
-        await renderLedgerOverview();
-      }
-      await refreshStudentProfileIfActive();
-    }
+            await renderLedgerOverview();
+          }
+          await refreshStudentProfileIfActive();
+        }
       });
     }
 
-    const profileStudentSelectEl = document.getElementById('profile-student');
-    if (profileStudentSelectEl){
-      profileStudentSelectEl.addEventListener('change', (e) => {
-        const val = Number(e.target.value);
-        currentProfileStudentId = val || null;
-        renderStudentProfile(currentProfileStudentId);
+    const profileSearchInput = document.getElementById('profile-student-search');
+    if (profileSearchInput){
+      profileSearchInput.addEventListener('input', (e) => {
+        renderProfileSearchResults(e.target.value || '');
       });
     }
-    const profileRefreshBtn = document.getElementById('profile-refresh');
-    if (profileRefreshBtn){
-      profileRefreshBtn.addEventListener('click', () => {
-        renderStudentProfile(currentProfileStudentId);
+    const profileSearchRows = document.getElementById('profile-search-rows');
+    if (profileSearchRows){
+      profileSearchRows.addEventListener('click', async (e) => {
+        const row = e.target.closest('tr[data-student-id]');
+        if (!row) return;
+        await setCurrentProfileStudent(Number(row.dataset.studentId));
+      });
+    }
+    const profileClearBtn = document.getElementById('profile-clear-selection');
+    if (profileClearBtn){
+      profileClearBtn.addEventListener('click', async () => {
+        const input = document.getElementById('profile-student-search');
+        if (input) input.value = '';
+        await setCurrentProfileStudent(null);
+        renderProfileSearchResults('');
+      });
+    }
+
+    const studentsSearchInput = document.getElementById('students-search');
+    if (studentsSearchInput){
+      studentsSearchInput.addEventListener('input', () => {
+        renderStudents({ skipSync: true });
+      });
+    }
+    const profileStatusSaveBtn = document.getElementById('profile-status-save');
+    const profileStatusSelect = document.getElementById('profile-status-select');
+    if (profileStatusSaveBtn && profileStatusSelect){
+      profileStatusSaveBtn.addEventListener('click', async () => {
+        if (!currentProfileStudentId) return alert('Select a student first.');
+        const newStatus = profileStatusSelect.value;
+        try {
+          await db.students.update(currentProfileStudentId, { status: newStatus });
+          const cacheIndex = allStudentsCache.findIndex(s => s && s.id === currentProfileStudentId);
+          if (cacheIndex !== -1){
+            allStudentsCache[cacheIndex] = {
+              ...allStudentsCache[cacheIndex],
+              status: newStatus
+            };
+          }
+          const sharedTasks = [
+            renderStudentProfile(currentProfileStudentId),
+            renderStudents(),
+            renderLedgerOverview(),
+            renderDashboard()
+          ];
+          if (currentLedgerStudentId === currentProfileStudentId){
+            sharedTasks.push(renderLedger(currentLedgerStudentId));
+          }
+          await Promise.all(sharedTasks);
+
+          const searchInput = document.getElementById('profile-student-search');
+          if (searchInput){
+            renderProfileSearchResults(searchInput.value || '');
+          }
+          alert('Student status updated.');
+        } catch (err){
+          console.error(err);
+          alert(err.message || 'Unable to update status.');
+        }
       });
     }
 
@@ -1850,8 +2174,8 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
     const btnAddCharge = document.getElementById('ledger-add-charge');
     if (btnAddCharge){
       btnAddCharge.addEventListener('click', async ()=>{
-        const sid = document.getElementById('ledger-student')?.value;
-        if (!sid) return alert('Select a student first.');
+        const sid = currentLedgerStudentId;
+        if (!sid) return alert('Select a student from the ledger list first.');
         const amountStr = prompt('Enter charge amount:');
         if (!amountStr) return;
         const amt = Number(amountStr);
@@ -1879,8 +2203,8 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       e.preventDefault();
       const fd = new FormData(e.target);
       const data = Object.fromEntries(fd.entries());
-      const sid = document.getElementById('ledger-student')?.value;
-      if (!sid) return alert('Select a student first.');
+      const sid = currentLedgerStudentId;
+      if (!sid) return alert('Select a student from the ledger list first.');
       const amount = Number(data.amount);
       if (isNaN(amount) || amount <= 0) return alert('Amount must be positive.');
       const type = data.type || 'credit';

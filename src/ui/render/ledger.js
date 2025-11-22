@@ -1,8 +1,8 @@
-import { formatMoney, formatAgentCode, formatFeeGroupCode, getAgentTypeLabel } from '../../utils/formatters.js';
-import { calculateInvoiceBalance, isInvoiceOverdue } from '../../services/ledgerService.js';
+import { formatMoney } from '../../utils/formatters.js';
+import { calculateInvoiceBalance } from '../../services/ledgerService.js';
 import { db } from '../../db/db.js';
 
-export async function renderLedger(studentId, ensureInvoicesForFeeGroup, setSelectedInvoiceId, selectedInvoiceIdRef, setSelectedInvoiceDisplay) {
+export async function renderLedger(studentId, ensureInvoicesForFeeGroup, setSelectedInvoiceId, selectedInvoiceIdRef) {
   const profileEl = document.getElementById('ledger-profile');
   const invoiceTbody = document.getElementById('rows-ledger-invoices');
   const paymentTbody = document.getElementById('rows-ledger-payments');
@@ -20,16 +20,20 @@ export async function renderLedger(studentId, ensureInvoicesForFeeGroup, setSele
     return;
   }
 
-  const [student, program, feeGroup] = await Promise.all([
-    db.students.get(Number(studentId)),
-    (async ()=>{
-      const s = await db.students.get(Number(studentId));
-      return s?.programId ? db.programs.get(s.programId) : null;
-    })(),
-    (async ()=>{
-      const s = await db.students.get(Number(studentId));
-      return s?.feeGroupId ? db.feeGroups.get(s.feeGroupId) : null;
-    })()
+  const student = await db.students.get(Number(studentId));
+  if (!student) {
+    profileEl.textContent = 'Student record not found.';
+    invoiceTbody.innerHTML = '';
+    paymentTbody.innerHTML = '';
+    summaryEl.textContent = '';
+    setSelectedInvoiceId?.(null);
+    selectedInvoiceDisplay.textContent = 'No invoice selected';
+    return;
+  }
+
+  const [program, feeGroup] = await Promise.all([
+    student.programId ? db.programs.get(student.programId) : null,
+    student.feeGroupId ? db.feeGroups.get(student.feeGroupId) : null
   ]);
   let invoices = await db.invoices.where('studentIdFk').equals(Number(studentId)).toArray();
   const payments = (await db.payments.where('studentIdFk').equals(Number(studentId)).toArray()).filter(p => !p.deleted);
@@ -40,9 +44,33 @@ export async function renderLedger(studentId, ensureInvoicesForFeeGroup, setSele
     invoices = await db.invoices.where('studentIdFk').equals(Number(studentId)).toArray();
   }
 
+  const feeGroupCache = new Map();
+  if (student?.feeGroupId && feeGroup){
+    feeGroupCache.set(student.feeGroupId, feeGroup);
+  }
+  const invoiceFeeGroupIds = Array.from(new Set(
+    invoices
+      .map(inv => inv.feeGroupId)
+      .filter(id => id !== null && id !== undefined && !feeGroupCache.has(id))
+  ));
+  if (invoiceFeeGroupIds.length){
+    const extraFeeGroups = await db.feeGroups.bulkGet(invoiceFeeGroupIds);
+    extraFeeGroups.forEach((fg, idx) => {
+      const id = invoiceFeeGroupIds[idx];
+      if (fg && id !== null && id !== undefined){
+        feeGroupCache.set(id, fg);
+      }
+    });
+  }
+
+  const normalizedStatus = (student?.status || '').toLowerCase();
+  const ledgerStudentName = normalizedStatus === 'suspended'
+    ? `<span class="text-red-600 font-semibold">${student?.name||'-'}</span>`
+    : (student?.name || '-');
+
   profileEl.innerHTML = `
     <div class="grid grid-cols-1 md:grid-cols-6 gap-3">
-      <div><span class="text-gray-500">Name</span><div class="font-medium">${student?.name||'-'}</div></div>
+      <div><span class="text-gray-500">Name</span><div class="font-medium">${ledgerStudentName}</div></div>
       <div><span class="text-gray-500">Program</span><div class="font-medium">${program?.name||'-'}</div></div>
       <div><span class="text-gray-500">Fee Group</span><div class="font-medium">${feeGroup?.name||'-'}</div></div>
       <div><span class="text-gray-500">Intake</span><div class="font-medium">${student?.intake||'-'}</div></div>
@@ -64,6 +92,9 @@ export async function renderLedger(studentId, ensureInvoicesForFeeGroup, setSele
     const amount = Number(inv.amount)||0;
     const paid = Number(inv.paid)||0;
     const balance = amount - paid;
+    const feeGroupLabel = inv.feeGroupId
+      ? (feeGroupCache.get(inv.feeGroupId)?.name || '-')
+      : 'Manual / Unassigned';
     totalCharge += amount;
     totalPaid += paid;
     const isSelected = selectedInvoiceIdRef?.current === inv.id;
@@ -73,7 +104,7 @@ export async function renderLedger(studentId, ensureInvoicesForFeeGroup, setSele
     tr.innerHTML = `
       <td class="py-2 pr-4">${i+1}</td>
       <td class="py-2 pr-4 capitalize">${inv.feeType || '-'}</td>
-      <td class="py-2 pr-4">${feeGroup?.name || '-'}</td>
+      <td class="py-2 pr-4">${feeGroupLabel}</td>
       <td class="py-2 pr-4">${formatMoney(amount)}</td>
       <td class="py-2 pr-4">${formatMoney(paid)}</td>
       <td class="py-2 pr-4">${formatMoney(balance)}</td>

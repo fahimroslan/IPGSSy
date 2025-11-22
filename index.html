@@ -115,19 +115,44 @@
     <!-- STUDENT PROFILE -->
     <section id="panel-profile" class="hidden space-y-4">
       <div class="bg-white p-4 rounded shadow">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <h2 class="font-semibold">Student Profile</h2>
-            <p class="text-sm text-gray-600">Select a student to view their profile, ledger, and academic progress.</p>
           </div>
-          <div class="flex items-center gap-2">
-            <select class="border rounded px-3 py-2 w-64" id="profile-student">
-              <option value="">Select Student</option>
-            </select>
-            <button id="profile-refresh" class="px-3 py-2 rounded bg-gray-200 text-gray-700">Refresh</button>
+          <div class="flex flex-col gap-2 w-full max-w-sm lg:max-w-xs">
+            <label for="profile-student-search" class="text-sm font-medium text-gray-700">Student Search</label>
+            <input
+              id="profile-student-search"
+              class="border rounded px-3 py-2 text-sm"
+              type="text"
+              placeholder="Search by name, student ID, email, or phone"
+            />
+            <p id="profile-selection-label" class="text-xs text-gray-500">No student selected.</p>
+            <button
+              id="profile-clear-selection"
+              class="text-sm text-gray-600 underline self-start hidden"
+              type="button"
+            >
+              Clear selection
+            </button>
           </div>
         </div>
-        <p class="text-sm text-gray-500 mt-3" id="profile-empty">Select a student to begin.</p>
+        <div class="mt-2">
+          <p class="text-sm text-gray-500" id="profile-empty"></p>
+          <div class="overflow-x-auto mt-3 hidden" id="profile-search-results">
+            <table class="min-w-full text-sm">
+              <thead>
+                <tr class="text-left border-b">
+                  <th class="py-2 pr-4">Name</th>
+                  <th class="py-2 pr-4">Student ID</th>
+                  <th class="py-2 pr-4">Program</th>
+                  <th class="py-2 pr-4">Status</th>
+                </tr>
+              </thead>
+              <tbody id="profile-search-rows"></tbody>
+            </table>
+          </div>
+        </div>
       </div>
 
       <div id="profile-content" class="hidden space-y-4">
@@ -140,6 +165,17 @@
               </div>
               <span id="profile-status" class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">-</span>
             </div>
+            <div class="flex items-center gap-2 mt-4">
+              <label class="text-sm text-gray-600">Status</label>
+              <select id="profile-status-select" class="border rounded px-3 py-2 text-sm">
+                <option value="Active">Active</option>
+                <option value="Defer">Defer</option>
+                <option value="Withdraw">Withdraw</option>
+                <option value="Suspended">Suspended</option>
+              </select>
+              <button id="profile-status-save" class="bg-blue-600 text-white px-3 py-2 rounded text-sm">Update</button>
+            </div>
+            <p id="profile-academic-warning" class="text-xs text-red-600 mt-2 hidden"></p>
             <dl class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-4">
               <div>
                 <dt class="text-gray-500 uppercase text-xs tracking-wide">Program</dt>
@@ -346,27 +382,26 @@
         </form>
       </div>
 
-      <div class="bg-white p-4 rounded shadow">
-        <div class="flex items-center justify-between mb-3">
-          <h2 class="font-semibold">Students</h2>
-          <button id="refresh-students" class="text-sm px-3 py-1 rounded bg-gray-100">Refresh</button>
+      <div class="bg-white p-4 rounded shadow space-y-4">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div>
+            <h2 class="font-semibold">Students</h2>
+            <p class="text-sm text-gray-500">Search and click a row to load the student profile.</p>
+          </div>
+          <div class="flex flex-col gap-2 w-full lg:w-80">
+            <label for="students-search" class="text-sm font-medium text-gray-700">Student Search</label>
+            <input
+              id="students-search"
+              class="border rounded px-3 py-2 text-sm"
+              type="text"
+              placeholder="Search by name, student ID, email, or phone"
+            />
+          </div>
         </div>
-        <div class="overflow-x-auto">
-          <table class="min-w-full text-sm" id="tbl-students">
-            <thead>
-              <tr class="text-left border-b">
-                <th class="py-2 pr-4">#</th>
-                <th class="py-2 pr-4">Student ID</th>
-                <th class="py-2 pr-4">Name</th>
-                <th class="py-2 pr-4">Program</th>
-                <th class="py-2 pr-4">Intake</th>
-                <th class="py-2 pr-4">Status</th>
-                <th class="py-2 pr-4">Actions</th>
-              </tr>
-            </thead>
-            <tbody id="rows-students"></tbody>
-          </table>
+        <div class="overflow-x-auto rounded-xl border border-gray-100" id="students-table-wrapper">
+          <div class="min-w-full" id="students-list"></div>
         </div>
+        <p class="text-sm text-gray-500 hidden" id="students-empty-state">No students found.</p>
       </div>
     </section>
 
@@ -697,27 +732,39 @@
           <h2 class="font-semibold mb-1">Finance Overview</h2>
           <p class="text-sm text-gray-600">Monitor billed vs collected totals across students or drill into a specific program, agent, or student.</p>
         </div>
-        <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
-          <label class="text-sm text-gray-700">
-            Program
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          <label class="flex flex-col space-y-2 text-sm text-gray-700">
+            <span class="font-medium">Program</span>
             <select class="border rounded px-3 py-2 w-full" id="ledger-filter-program">
               <option value="">All Programs</option>
             </select>
           </label>
-          <label class="text-sm text-gray-700">
-            Agent
+          <label class="flex flex-col space-y-2 text-sm text-gray-700">
+            <span class="font-medium">Agent</span>
             <select class="border rounded px-3 py-2 w-full" id="ledger-filter-agent">
               <option value="">All Agents</option>
             </select>
           </label>
-          <label class="text-sm text-gray-700">
-            Student
-            <select class="border rounded px-3 py-2 w-full" id="ledger-filter-student">
-              <option value="">All Students</option>
-            </select>
-          </label>
-          <div class="flex items-end">
-            <button type="button" id="ledger-filter-reset" class="w-full bg-gray-900 text-white rounded px-4 py-2">Reset Filters</button>
+          <div class="flex flex-col space-y-2 text-sm text-gray-700">
+            <div class="flex items-center justify-between">
+              <label for="ledger-filter-student-search" class="font-medium">Student</label>
+              <span class="text-xs text-gray-500">Live search</span>
+            </div>
+            <input
+              type="text"
+              id="ledger-filter-student-search"
+              class="border rounded px-3 py-2 w-full text-sm"
+              placeholder="Type a name, ID, email, or phone"
+            />
+          </div>
+          <div class="flex">
+            <button
+              type="button"
+              id="ledger-filter-reset"
+              class="w-full bg-gray-900 text-white rounded px-4 py-2 h-full flex items-center justify-center text-sm font-medium"
+            >
+              Reset Filters
+            </button>
           </div>
         </div>
         <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm" id="ledger-overview-cards">
@@ -768,17 +815,22 @@
       </div>
 
       <div class="bg-white p-4 rounded shadow">
-        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
           <div>
             <h2 class="font-semibold mb-1">Student Finance Ledger</h2>
-            <p class="text-sm text-gray-600">Select a student to view profile, invoices (charges), and apply payments/discounts.</p>
+            <p class="text-sm text-gray-600">Use the filtered list above and click a student to load their ledger.</p>
           </div>
-          <label class="text-sm text-gray-700">
-            Student
-            <select class="border rounded px-3 py-2 w-full" id="ledger-student">
-              <option value="">Select Student</option>
-            </select>
-          </label>
+          <div class="text-sm text-gray-700 flex flex-col gap-2 w-full lg:w-80">
+            <p id="ledger-student-active-label" class="text-xs text-gray-500">No student selected.</p>
+            <button
+              type="button"
+              id="ledger-clear-selection"
+              class="bg-gray-200 hover:bg-gray-300 text-gray-700 rounded px-3 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled
+            >
+              Clear Selection
+            </button>
+          </div>
         </div>
       </div>
 

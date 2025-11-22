@@ -6,12 +6,12 @@ import { db } from '../../db/db.js';
 export async function renderStudentProfile(studentId, setCurrentProfileId){
   const content = document.getElementById('profile-content');
   const emptyState = document.getElementById('profile-empty');
-  const select = document.getElementById('profile-student');
+  const statusSelect = document.getElementById('profile-status-select');
+  const statusSaveBtn = document.getElementById('profile-status-save');
   const sid = Number(studentId);
   if (!sid){
-    if (select && !select.value){
-      setCurrentProfileId?.(null);
-    }
+    if (statusSelect) statusSelect.disabled = true;
+    if (statusSaveBtn) statusSaveBtn.disabled = true;
     if (emptyState){
       emptyState.textContent = 'Select a student to begin.';
       emptyState.classList.remove('hidden');
@@ -20,9 +20,6 @@ export async function renderStudentProfile(studentId, setCurrentProfileId){
       content.classList.add('hidden');
     }
     return;
-  }
-  if (select && select.value !== String(sid)){
-    select.value = String(sid);
   }
   const student = await db.students.get(sid);
   if (!student){
@@ -37,6 +34,8 @@ export async function renderStudentProfile(studentId, setCurrentProfileId){
     return;
   }
   setCurrentProfileId?.(sid);
+  if (statusSelect) statusSelect.disabled = false;
+  if (statusSaveBtn) statusSaveBtn.disabled = false;
   const [program, feeGroup] = await Promise.all([
     student.programId ? db.programs.get(student.programId) : null,
     student.feeGroupId ? db.feeGroups.get(student.feeGroupId) : null
@@ -87,6 +86,24 @@ export async function renderStudentProfile(studentId, setCurrentProfileId){
     }
     statusEl.textContent = student.status || 'Status';
   }
+  if (statusSelect){
+    statusSelect.value = student.status || 'Active';
+  }
+
+  const warningEl = document.getElementById('profile-academic-warning');
+  if (warningEl){
+    const lowerStatus = (student.status || '').toLowerCase();
+    const onHold = ['defer','withdraw','suspended'].includes(lowerStatus);
+    warningEl.textContent = onHold
+      ? `Academic activity is restricted while this student is ${student.status || ''}.`
+      : '';
+    warningEl.classList.toggle('hidden', !onHold);
+  }
+  const nameEl = document.getElementById('profile-name');
+  if (nameEl){
+    nameEl.classList.toggle('text-red-600', (student.status || '').toLowerCase() === 'suspended');
+  }
+
   const ledgerMap = {
     'profile-ledger-billed': formatCurrency(billed),
     'profile-ledger-collected': formatCurrency(collected),
