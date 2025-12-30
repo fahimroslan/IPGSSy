@@ -1,0 +1,189 @@
+<link rel="stylesheet" href="ROOT_PATH#css/cadcom.css" type="text/css" />
+<link rel="stylesheet" href="ROOT_PATH#css/style.css" type="text/css">
+<link href="https://fonts.googleapis.com/css?family=Lato&display=swap" rel="stylesheet">
+
+<!--Action frame start--->
+<div id="cc-recording-web" class="recording-option-popup-container">
+	<!-- <iframe src="about:blank" style="visibility:hidden;" allowtransparency="true" application="yes" allow="microphone;camera;speaker;" id="cc-recording-web"
+            frameBorder="0" style=""></iframe> -->
+</div>
+<!---End-->
+
+
+<!--Toster for message show dynamic--->
+<div id="fde-add-brading-logo">
+</div>
+<!---End-->
+
+<!--Toster for message show dynamic--->
+<div id="fde-add-toster-web">
+</div>
+<!---End-->
+
+<!--Gmail frame add Start-->
+<div id="cc-video-search" style="z-index: 1000000004;display: none;position: fixed;top:0;width: 100vw;height: 100vh;background: rgba(0,0,0, 0.5);">
+</div>
+<!--End-->
+<!--2f Login frame add Start-->
+<div id="fde-2flogin-frame" style="z-index: 1000000003;position: fixed;top: 5%;left:30%;">
+
+</div>
+<!--End-->
+<!--Video frame start--->
+<div id="cc-recording-block" style="display: none;z-index: 1000000002;bottom: 20px; left: 100px;">
+	<div class="cc-personal-recorder-view show" id="vcc-ffcam-container">
+		<table>
+			<tr>
+				<td id="vcc-left-position"></td>
+				<td>
+					<!--<div class="timer_count" id="vcc-timer-elem"></div>-->
+					<!-- <div class="timer_count" id="vcc-timer-elem" style="display: none;"></div> -->
+					<div class="cc-ffcam-view-wrap cc-round-shadow" style="display: inline-block;">
+						<div class="cc-ffcam-view size-1 cc-round" id="vcc-video-frame">
+							<div class="cc-ffcam-iframe-container" id="vidcor-video-frame">
+								<div class="fl-loader-bg" id="fde-video-loader" style="opacity: 0;">
+									<div class="fl-loading-bar-spinner fl-spinner sml">
+										<div class="fl-spinner-icon sml"></div>
+									</div>
+								</div>
+								<!-- <img id="vidcor-ff-img" style="width:100%;	object-fit:cover; height:100%;"
+									onerror="this.onerror=null;this.src='ROOT_PATH#images/user.jpeg';" /> -->
+								<div id="vidcor-ff-img" style="width:100%;	object-fit:cover; height:100%; display: none;">
+									<div style="text-align: center;padding-top: 40px;font-weight: bold;font-family: 'Circular-Loom';">Close other apps</div>
+									<div style="padding-top: 25px;font-size: 13px;text-align: center;font-family: 'Circular-Loom';">
+										It looks like some other app is <br> already using your camera.
+									</div>
+									<div style="text-align: center;pointer-events: all;padding-top: 10px;">
+										<button id="retryVideoFrmae" style="cursor: pointer;background-color: #1e51c39c;color: #fff;border: black;border-radius: 10px;width: 70px;height: 25px;">Retry</button>
+									</div>
+								</div>
+								<iframe src="ROOT_PATH#template/iframe.html" id="vidcor-ff-cam" class="cc-zoom1"
+									allow="camera;microphone"></iframe>
+							</div>
+
+
+
+							<div class="cc-camera-type-blk" style="display: none;">
+								<div class="cc-camera-type">
+									<div class="c-shape-sqr cc-tt" id="fde-square-click">
+										<span class="cc-tt-hint">Click to change the shape<br>to square</span>
+									</div>
+									<div class="c-shape-cir cc-tt act" id="fde-rount-click">
+										<span class="cc-tt-hint">Click to change the shape<br>to circle</span>
+									</div>
+								</div>
+								<div class="shape-size">
+									<div class="size-button size-3 vcc-cam-zoom3"></div>
+									<div class="size-button size-2 vcc-cam-zoom2"></div>
+									<div class="size-button size-1 vcc-cam-zoom1 active"></div>
+								</div>
+							</div>
+
+
+
+							<!-- <div class="cc-camera-size-tooltip">
+								<div class="size-button size-1 vcc-cam-zoom1 active"></div>
+								<div class="size-button size-2 vcc-cam-zoom2"></div>
+								<div class="size-button size-3 vcc-cam-zoom3"></div>
+							</div> -->
+
+							<!-- <span class="cc-ffcam-close size-1"></span> -->
+							<div class="cc-tt">
+								<span class="cc-flipcamera" id="vcc-flip-camera"></span>
+								<span class="cc-tt-hint hint-camera" style="height:14px!important;">Mirror Camera</span>
+							</div>
+							<!-- <span class="cc-bg-setting" id="fde-bg-blur-click"></span> -->
+						</div>
+					</div>
+				</td>
+			</tr>
+		</table>
+	</div>
+</div>
+<!------------Tools Start---------------->
+<section class="cc-tools-container" valign="bottom" id="fde-action-menu-items"
+	style="display: none;top: 144px; left: 0px;">
+	<div style="position: relative;bottom: 0px; left:-10px; top:10px; display: flex;">
+		<img id="drag-elem-id" class="cc-drag" src="ROOT_PATH#images/icons/drag.png">
+		<div class="cc-tools">
+			<div>
+				<strong class="recording-duration"  id="vcc-timer-elem" style="display: none;">0:00:00</strong>
+			</div>
+			<img src="ROOT_PATH#images/icons/flu-pause-ico.png" id="vcc-pause-btn" style="display: none;" title="Pause Recording">
+			<img src="ROOT_PATH#images/icons/flu-play-ico.png" id="vcc-resume-btn" style="display: none;" title="Resume Recording">
+			<img src="ROOT_PATH#images/icons/flu-play-ico.png" id="vcc-init-btn" title="Start Recording" style="display: none;">
+			<span class="pos-rel" style="height:36px;">
+			<img src="ROOT_PATH#images/icons/flu-close-ico.png" id="open-cancel-option" title="Cancel Recording">
+				<div class="cls-rec" id="cancel-option-list" style="display: none;">
+					<ul>
+						<li id="vcc-cancel-btn">Cancel recording</li>
+						<li id="fde-restart">Restart recording</li>
+					</ul>
+				</div>
+			</span>
+
+			<img src="ROOT_PATH#images/icons/flu-finish-rc.png" id="vcc-stop-btn" style="display: none;" title="Finish Recording">
+			<img src="ROOT_PATH#images/icons/flu-camera-on-ico.png" id="vcc-cam-setting-btn" title="Camera ON">
+			<img src="ROOT_PATH#images/icons/flu-camera-off-ico.png" id="vcc-cam-hide-setting-btn" title="Camera OFF">
+			<div id="vcc-draw-elem" style="display: none;">
+				<div id="drawing-tools-open">
+					<div class="pentool">Tools</div>
+				</div>
+				<div id="drawing-tools-list" style="display: none;">
+					<img class="extra-tools drawingToolHideShow" id="vcc-draw-pen"
+						src="ROOT_PATH#images/icons/flu-pen-ico.png" title="Pen Tool">
+					<img class="extra-tools drawingToolHideShow" id="vcc-draw-eraser"
+						src="ROOT_PATH#images/icons/flu-eraser-ico.png" title="Eraser">
+					<img class="extra-tools drawingToolHideShow" id="vcc-clear-draw"
+						src="ROOT_PATH#images/icons/flu-clear-pen.png" title="Clear Paint">
+					<img class="extra-tools drawingToolHideShow" id="vcc-cursor-focus"
+						src="ROOT_PATH#images/icons/flu-focus-ico.png" title="Mouse Pointer Spotlight">
+					<img class="extra-tools drawingToolHideShow" id="vcc-draw-highlight"
+						src="ROOT_PATH#images/icons/flu-mouse.png" title="Mouse Click Highlighter">
+				</div>
+
+				<div id="drawing-tools-close" style="display: none;">
+					<div class="pentool-cls"></div>
+				</div>
+			</div>
+		</div>
+		<div class="cc-tools ccpen-col" id="cc-pen-editor" style="display: none;">
+			<div class="brush-tools">
+				<div class="pen-color" id="pen-color-id">
+					<ul style="padding-left:5px; margin:0">
+						<!-- First one is default if changed please change it in ElectronConstant as well. -->
+						<li data-color="#7fffd4" title="Aqua Menthe"></li>
+						<li data-color="#8a2be2" title="Proton Purple"></li>
+						<li data-color="#ff4500" title="Orange Red"></li>
+						<li data-color="#008000" title="Office Green"></li>
+						<li data-color="#0000ff" title="Just Blue"></li>
+						<li data-color="#ffc0cb" title="Blush Pink"></li>
+						<li data-color="#dfff00" title="Chartreuse Yellow"></li>
+						<li data-color="#fff9e3" title="Cosmic Latte"></li>
+						<li data-color="#000" title="All Black"></li>
+						<li data-color="#fff" title="Simple White"></li>
+					</ul>
+				</div>
+				<div class="brush-size-wrapper">
+					<span id="pen-size-text" class="cc-pensize">5px</span>
+					<div class="brush-size">
+						<input id="pen-size" type="range" orient="vertical" min="5" max="20" value="5" />
+					</div>
+					<div id="current-pen-size" class="pen-size"></div>
+				</div>
+			</div>
+			<div class="cc-close" id="cc-editor-close">close</div>
+		</div>
+	</div>
+</section>
+<!------------Tools Ends----------------->
+
+<!--End-->
+
+<!--Message popup --->
+<div id="fde-popup-message"></div>
+<div id="fde-common-popup-message">
+</div>
+<!---End-->
+
+<!-- ---------------------------------------------------------------------------------- -->

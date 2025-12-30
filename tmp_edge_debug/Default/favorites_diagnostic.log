@@ -1,0 +1,50 @@
+2025-11-24 04:01:22.663: [INFO] VisibilityChanged: 0
+2025-11-24 04:01:22.860: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2025-11-24 04:01:22.863: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2025-11-24 04:01:22.865: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2025-11-24 04:01:22.867: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2025-11-24 04:01:22.868: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2025-11-24 04:01:22.870: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2025-11-24 04:01:22.872: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2025-11-24 04:01:22.875: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2025-11-24 04:01:22.877: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2025-11-24 04:01:22.879: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2025-11-24 04:01:22.880: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2025-11-24 04:01:22.898: [INFO] BookmarkModelLoaded, ids_reassigned: 0
+2025-11-24 04:01:22.898: [INFO] OnDoneLoading sync enabled: 0
+2025-11-24 04:01:22.907: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 0
+2025-11-24 04:01:23.312: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 3
+2025-11-24 04:01:23.316: [INFO] Primary account changed.
+2025-11-24 04:01:23.316: [INFO] OnPrimaryAccountChanged PrimaryAccountChangeEvent::Type::kSet
+2025-11-24 04:01:23.862: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 3
+2025-11-24 04:01:26.558: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 3
+2025-11-24 04:01:26.561: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 3
+2025-11-24 04:01:26.564: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 3
+2025-11-24 04:01:26.566: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 3
+2025-11-24 04:01:26.569: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 3
+2025-11-24 04:01:26.572: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 3
+2025-11-24 04:01:26.575: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2025-11-24 04:01:26.578: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2025-11-24 04:01:27.023: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2025-11-24 04:01:27.044: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2025-11-24 04:01:28.402: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2025-11-24 04:01:28.405: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 6
+2025-11-24 04:01:28.667: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 6
+2025-11-24 04:01:28.670: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 6
+2025-11-24 04:01:28.673: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 6
+2025-11-24 04:01:28.678: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 6
+2025-11-24 04:01:30.476: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 6
+2025-11-24 04:01:30.479: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 6
+2025-11-24 04:01:30.683: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 6
+2025-11-24 04:01:38.807: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2025-11-24 04:01:38.810: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2025-11-24 04:01:38.813: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2025-11-24 04:01:38.816: [INFO] RecordSyncInitDuration has_sync_been_enabled: 0 state: 5
+2025-11-24 04:01:39.455: [INFO] BookmarkNodeAdded, ABU: 0
+2025-11-24 04:01:39.456: [INFO] BookmarkNodeAdded, ABU: 0
+2025-11-24 04:01:39.457: [INFO] BookmarkNodeAdded, ABU: 0
+2025-11-24 04:01:39.457: [INFO] BookmarkNodeAdded, ABU: 0
+2025-11-24 04:01:39.457: [INFO] BookmarkNodeAdded, ABU: 0
+2025-11-24 04:01:39.458: [INFO] BookmarkNodeAdded, ABU: 0
+2025-11-24 04:06:56.576: [INFO] OnDoneLoading sync enabled: 1
+2025-11-24 04:06:56.860: [INFO] VisibilityChanged: 0

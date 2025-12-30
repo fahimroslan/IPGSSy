@@ -1,0 +1,105 @@
+{
+   "checksum": "555105e7d234c8cadd02f2a36cd56c52",
+   "roots": {
+      "bookmark_bar": {
+         "children": [ {
+            "date_added": "13374695296722196",
+            "date_last_used": "0",
+            "guid": "e89a4f7a-f36d-4404-9f27-e4615f5d7f9c",
+            "id": "6",
+            "name": "The Noble Quran - Quran.com",
+            "show_icon": false,
+            "source": "import_continuous_from_chrome",
+            "type": "url",
+            "url": "https://quran.com/",
+            "visit_count": 0
+         }, {
+            "date_added": "13325566208055366",
+            "date_last_used": "0",
+            "guid": "0aef2e3d-3c0a-4971-b2eb-1f2be7e97066",
+            "id": "7",
+            "name": "Google Scholar",
+            "show_icon": false,
+            "source": "import_continuous_from_chrome",
+            "type": "url",
+            "url": "https://scholar.google.com/",
+            "visit_count": 0
+         }, {
+            "date_added": "13325844276763993",
+            "date_last_used": "0",
+            "guid": "81aea3f4-4a76-40cf-8bf9-0a4c1a9b9200",
+            "id": "8",
+            "name": "Search | Mendeley",
+            "show_icon": false,
+            "source": "import_continuous_from_chrome",
+            "type": "url",
+            "url": "https://www.mendeley.com/search/",
+            "visit_count": 0
+         }, {
+            "date_added": "13326260727588364",
+            "date_last_used": "0",
+            "guid": "0ad54623-7be4-4495-9284-52ec0fdbe387",
+            "id": "9",
+            "name": "An Improved Rectangle Lightweight Block Cipher Based On 3d Rotation Method | USIM Research Repository System",
+            "show_icon": false,
+            "source": "import_continuous_from_chrome",
+            "type": "url",
+            "url": "https://oarep.usim.edu.my/jspui/handle/123456789/18001",
+            "visit_count": 0
+         }, {
+            "date_added": "13374860614661781",
+            "date_last_used": "0",
+            "guid": "16bdf416-5710-4209-abda-a8bd3022a3cb",
+            "id": "10",
+            "name": "SPM Trial Paper Questions and Answer 2023/",
+            "show_icon": false,
+            "source": "import_continuous_from_chrome",
+            "type": "url",
+            "url": "https://trial.spmpaper.me/?dir=2023",
+            "visit_count": 0
+         }, {
+            "date_added": "13393327317958554",
+            "date_last_used": "0",
+            "guid": "cf558828-210c-4873-957d-9fc0b6547199",
+            "id": "11",
+            "name": "Modern Expense Tracker",
+            "show_icon": false,
+            "source": "import_continuous_from_chrome",
+            "type": "url",
+            "url": "file:///C:/Users/Fahim/OneDrive/Desktop/expenses2.html",
+            "visit_count": 0
+         } ],
+         "date_added": "13408430482292225",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "0bc5d13f-2cba-5d74-951f-3f233fe6c908",
+         "id": "1",
+         "name": "Favorites bar",
+         "source": "unknown",
+         "type": "folder"
+      },
+      "other": {
+         "children": [  ],
+         "date_added": "13408430482292225",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "82b081ec-3dd3-529c-8475-ab6c344590dd",
+         "id": "2",
+         "name": "Other favorites",
+         "source": "unknown",
+         "type": "folder"
+      },
+      "synced": {
+         "children": [  ],
+         "date_added": "13408430482292225",
+         "date_last_used": "0",
+         "date_modified": "0",
+         "guid": "4cf2e351-0e85-532b-bb37-df045d8f8d0f",
+         "id": "3",
+         "name": "Mobile favorites",
+         "source": "unknown",
+         "type": "folder"
+      }
+   },
+   "version": 1
+}

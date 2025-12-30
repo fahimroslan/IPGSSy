@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html>
+
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>Fluvid Cam Only Recording</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <link rel="stylesheet" href="chrome-extension://hfadalcgppcbffdnichplalnmhjbabbm/css/cadcom.css" type="text/css" />
+    <style>
+        body,
+        html {
+            padding: 0px;
+            margin: 0px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+    <div class="timer_count_cam" id="vcc-timer-elem" style="display: none;">0:00:00</div>
+    <div class="fl-loader-bg" id="fde-video-loader"  style="opacity: 0;">
+        <div class="fl-loading-bar-spinner fl-spinner sml">
+            <div class="fl-spinner-icon sml"></div>
+        </div>
+    </div>
+    <div class="cc-ffcam-iframe-container">
+        <iframe src="chrome-extension://hfadalcgppcbffdnichplalnmhjbabbm/template/iframe.html" id="vidcor-ff-cam"
+            allow="camera;microphone" style="height: 100vh;width: 100vw;border: none;"></iframe>
+    </div>
+
+    <div class="camOnlyAction" id="camOnlyActionId">
+        <span id="vcc-flip-camera" title="Mirror Camera">
+            <img src="images/mirror-icon.png">
+        </span>
+        <span id="vcc-pause-btn" title="Pause Recording">
+            <img src="./images/pause-icon.png">
+        </span>
+        <span id="vcc-resume-btn" class="resume-rec" title="Resume Recording" style="display:none">
+            <img src="./images/resume-icon.png">
+        </span>
+        <span id="vcc-stop-btn" class="stop-rec" title="Finish Recording">
+            <img src="./images/stop-icon.png">
+        </span>
+        <span id="vcc-camOnly-cancel-btn" title="Cancel Recording">
+            <img src="./images/cancel-icon.png">
+        </span>
+        <span id="fde-restart-camonly" title="Restart Recording">
+            <img src="./images/undo-icon.png">
+        </span>
+    </div>
+</body>
+<script src="../js/modules/draw.js"></script>
+<script src="../js/content.js"></script>
+<script src="../js/jquery-3.6.0.min.js"></script>
+<script src="../js/modules/camOnly.js"></script>
+<script src="../js/helper.js"></script>
+<script src="../js/main.js"></script>
+
+</html>

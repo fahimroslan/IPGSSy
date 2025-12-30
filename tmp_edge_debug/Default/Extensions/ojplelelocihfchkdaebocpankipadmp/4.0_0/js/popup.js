@@ -1,0 +1,1 @@
+document.addEventListener("DOMContentLoaded",function(){document.getElementById("closePopup").onclick=function(n){window.close()}});

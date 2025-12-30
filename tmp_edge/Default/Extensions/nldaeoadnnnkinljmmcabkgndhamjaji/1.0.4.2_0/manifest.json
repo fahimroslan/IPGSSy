@@ -1,0 +1,30 @@
+{
+   "action": {
+      "default_icon": {
+         "128": "pics/logo.png",
+         "16": "pics/logo16.png",
+         "48": "pics/logo48.png"
+      },
+      "default_popup": "popup.html",
+      "default_title": "Ziteboard Manager"
+   },
+   "background": {
+      "service_worker": "js/background.js"
+   },
+   "default_locale": "en",
+   "description": "Ziteboard – manage folders and boards with our online whiteboard for seamless real-time collaboration.",
+   "host_permissions": [ "https://api.ziteboard.com/*" ],
+   "icons": {
+      "128": "pics/logo.png",
+      "16": "pics/logo16.png",
+      "48": "pics/logo48.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAopw/UUTdLu3n7vTNPhQswUGWtTVM9hL5TGGPhNbV5BNu4WdLrDC14N54AEw5cSMrfiPS+LVK4FiECenjdIUWSuFEwXkCpUIvBZlqW/QVF26MHJO8x2lG5RAcjT/XjTNfIKhiudCeMcn7S0MerYm3unwXqEPe972o7YHy2v9AhmV9RZf8Anp+DU87x8NrRHLb8ur5myHyfGqfDonWWUB+VYPeoW4uE6Rzhn+RY1za3zrZNUY9nmA0cSs0qKhGc9fCYeboFEqSsOYx1yd3cVd6jGc9yIrmuVZbi7S9HNU6niawFTHlglyiI/Z1qYPGeib1aroIVo7Yx7NdNRtUwWWu1wIDAQAB",
+   "manifest_version": 3,
+   "minimum_chrome_version": "88.0.0.0",
+   "name": "Ziteboard",
+   "permissions": [ "storage" ],
+   "short_name": "Ziteboard",
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "1.0.4.2"
+}

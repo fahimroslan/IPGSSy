@@ -129,13 +129,19 @@ export async function renderStudentProfile(studentId, setCurrentProfileId){
         .sort((a,b)=> (a.createdAt || '').localeCompare(b.createdAt || ''))
         .forEach(inv => {
           const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td class="py-2 pr-4">${(inv.feeType || '').toString().toUpperCase()}</td>
-            <td class="py-2 pr-4">${formatCurrency(Number(inv.amount)||0)}</td>
-            <td class="py-2 pr-4">${formatCurrency(Number(inv.paid)||0)}</td>
-            <td class="py-2 pr-4 capitalize">${inv.status || '-'}</td>
-            <td class="py-2 pr-4">${inv.createdAt || '-'}</td>
-          `;
+          const values = [
+            (inv.feeType || '').toString().toUpperCase(),
+            formatCurrency(Number(inv.amount) || 0),
+            formatCurrency(Number(inv.paid) || 0),
+            inv.status || '-',
+            inv.createdAt || '-'
+          ];
+          values.forEach((value, idx) => {
+            const td = document.createElement('td');
+            td.className = `py-2 pr-4${idx === 3 ? ' capitalize' : ''}`;
+            td.textContent = value;
+            tr.appendChild(td);
+          });
           invoiceRows.appendChild(tr);
         });
     }
@@ -170,14 +176,19 @@ export async function renderStudentProfile(studentId, setCurrentProfileId){
           }
           const detailText = detailBits.join(' | ') || '-';
           const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td class="py-2 pr-4">${p.date || '-'}</td>
-            <td class="py-2 pr-4">${label}</td>
-            <td class="py-2 pr-4 ${type === 'credit' ? 'text-emerald-600' : type === 'discount' ? 'text-amber-600' : ''}">
-              ${formatCurrency(amount)}
-            </td>
-            <td class="py-2 pr-4">${detailText}</td>
-          `;
+          const dateCell = document.createElement('td');
+          dateCell.className = 'py-2 pr-4';
+          dateCell.textContent = p.date || '-';
+          const labelCell = document.createElement('td');
+          labelCell.className = 'py-2 pr-4';
+          labelCell.textContent = label;
+          const amountCell = document.createElement('td');
+          amountCell.className = `py-2 pr-4 ${type === 'credit' ? 'text-emerald-600' : type === 'discount' ? 'text-amber-600' : ''}`.trim();
+          amountCell.textContent = formatCurrency(amount);
+          const detailCell = document.createElement('td');
+          detailCell.className = 'py-2 pr-4';
+          detailCell.textContent = detailText;
+          tr.append(dateCell, labelCell, amountCell, detailCell);
           paymentRows.appendChild(tr);
         });
     }
@@ -205,14 +216,20 @@ export async function renderStudentProfile(studentId, setCurrentProfileId){
         .forEach(res => {
           const course = courseMap[res.courseIdFk];
           const tr = document.createElement('tr');
-          tr.innerHTML = `
-            <td class="py-2 pr-4">${course ? `${course.code} — ${course.title}` : '-'}</td>
-            <td class="py-2 pr-4">${res.semester || '-'}</td>
-            <td class="py-2 pr-4">${res.mark ?? '-'}</td>
-            <td class="py-2 pr-4">${res.grade || '-'}</td>
-            <td class="py-2 pr-4">${Number(res.point || 0).toFixed(2)}</td>
-            <td class="py-2 pr-4">${res.credit ?? '-'}</td>
-          `;
+          const values = [
+            course ? `${course.code} - ${course.title}` : '-',
+            res.semester || '-',
+            res.mark ?? '-',
+            res.grade || '-',
+            Number(res.point || 0).toFixed(2),
+            res.credit ?? '-'
+          ];
+          values.forEach((value) => {
+            const td = document.createElement('td');
+            td.className = 'py-2 pr-4';
+            td.textContent = String(value);
+            tr.appendChild(td);
+          });
           resultsBody.appendChild(tr);
         });
     }

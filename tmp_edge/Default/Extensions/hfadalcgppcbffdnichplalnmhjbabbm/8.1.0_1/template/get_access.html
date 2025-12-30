@@ -1,0 +1,171 @@
+<!DOCTYPE html>
+<html lang="en" style="margin: 0; padding: 0;">
+
+<head>
+	<meta charset="UTF-8">
+	<title>Title</title>
+	<style>
+		.main-div {
+			width: 1300px;
+			margin: 10px auto;
+			text-align: center;
+		}
+
+		h1 {
+			font-size: 34px;
+			margin: 0;
+			color: #555;
+			font-weight: 600;
+		}
+
+		p {
+			font-size: 17px;
+			color: #555;
+			margin: 0;
+			padding: 5px 0 20px 0
+		}
+
+		.logo {
+			width: 10%;
+			left: 50%;
+			transform: translate(-50%, 0%);
+			display: block;
+			position: relative;
+		}
+
+		.col {
+			margin: 12px;
+		}
+
+		.blue-text {
+			color: #39447a;
+			font-family: poppins, 'sans-serif';
+			font-size: 15px;
+			font-weight: 400;
+			padding-bottom: 10px;
+		}
+
+		.info-text {
+			color: #8a8a8a;
+			font-family: poppins, 'sans-serif';
+			font-size: 14px;
+			font-weight: 300;
+		}
+
+		.more-text {
+			color: #333;
+			font-family: poppins, 'sans-serif';
+			font-size: 12px;
+			font-weight: 300;
+			padding-top: 10px;
+		}
+
+		.more-text a {
+			color: #328cd1;
+			text-decoration: none;
+		}
+
+		.blue-row {
+			background-color: #39447a;
+			color: #fff;
+			padding: 8px;
+			border-top-left-radius: 8px;
+			border-top-right-radius: 8px;
+			font-family: poppins;
+			font-size: 14px;
+			font-weight: 300;
+			letter-spacing: 1px;
+		}
+
+		.info,
+		.camera-info,
+		.microphone-info {
+			border: 1px solid #d9d9d9;
+			border-top: 0;
+			height: 330px;
+			padding-top: 1px;
+		}
+
+		.blocks {
+			display: grid;
+			grid-template-columns: 33.3% 33.3% 33.3%;
+		}
+
+		#gif1,
+		#gif2,
+		#gif3 {
+			width: 100%;
+		}
+
+		.btn {
+			padding: 6px 25px;
+			line-height: 40px;
+			font-family: roboto;
+			font-size: 14px;
+			letter-spacing: .6px;
+			background: #292929;
+			text-decoration: none;
+			color: #dedede;
+			box-shadow: 0px 5px 8px 1px #8c8c8c;
+			border-radius: 2px;
+			transition: .2s ease-in;
+		}
+
+		.btn:hover {
+			color: #fff;
+		}
+	</style>
+</head>
+
+<body style="margin: 0; padding: 0; overflow: hidden;height: 100vh;">
+	<br>
+	<!--<video id="vcc-ff-cam" class="cc-zoom1" autoplay="autoplay"></video>-->
+	<div class="main-div">
+		<div style="display: none" id="vcc_request_access">
+			<div class="main-div"> 
+				<img src="../template/images/fluvid1.png" alt="logo" class="logo">
+				<p class="blue-text">We need to access your camera and microphone to record your response.</p>
+				<span class="info-text">To make a video, you need to turn your camera and microphone on. This will let people
+					see and hear you during the recording.</span>
+				<p class="more-text">You can turn these off later.</p>
+				<div class="blocks">
+					<div class="left-col col">
+						<div class="blue-row">Enable Camera & Microphone</div>
+						<div class="info">
+							<img src="../template/images/1.gif" id="gif1">
+						</div>
+					</div>
+					<div class="right-col col">
+						<div class="blue-row">Enable the Camera</div>
+						<div class="camera-info">
+							<img src="../template/images/2.gif" id="gif2">
+							<a href="chrome://settings/content/camera" class="btn">Go to Camera Settings</a>
+						</div>
+					</div>
+					<div class="right-col col">
+						<div class="blue-row">Enable the Microphone</div>
+						<div class="microphone-info">
+							<img src="../template/images/3.gif" id="gif3">
+							<a href="chrome://settings/content/microphone" class="btn">Go to Microphone Settings</a>
+						</div>
+					</div>
+				</div>
+			</div>
+		</div>
+		<div style="display: none" id="vcc_access_blocked">
+			<p>Fluvid failed to access to your microphone or camera. Please change the media setting in the location
+				bar. Then close this tab and try again.</p>
+			<img src="images/Hnet-image.gif" />
+		</div>
+		<div style="display: none" id="vcc_access_granted">
+			<h1><img src="https://imgur.com/YoMBcD4.png" style="width:50px; vertical-align:bottom"> Microphone/Camera Access</h1>
+			<p style="margin-top: 20px;">
+				You have successfully set up microphone and camera access. You can now close this page and start recording.
+			</p>
+
+		</div>
+	</div>
+	<script src="../js/modules/getaccess.js"></script>
+</body>
+
+</html>

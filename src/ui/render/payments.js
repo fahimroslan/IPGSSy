@@ -12,15 +12,21 @@ export async function renderPayments(afterRender) {
 
   rows.forEach((row) => {
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="py-2 pr-4">${row.index}</td>
-      <td class="py-2 pr-4">${row.date}</td>
-      <td class="py-2 pr-4">${row.studentName}</td>
-      <td class="py-2 pr-4">${row.feeGroupLabel}</td>
-      <td class="py-2 pr-4">${row.label}</td>
-      <td class="py-2 pr-4">${row.signedAmount >= 0 ? '+' : '-'}${row.absAmount.toFixed(2)}</td>
-      <td class="py-2 pr-4">${row.noteText}</td>
-    `;
+    const values = [
+      row.index,
+      row.date,
+      row.studentName,
+      row.feeGroupLabel,
+      row.label,
+      `${row.signedAmount >= 0 ? '+' : '-'}${row.absAmount.toFixed(2)}`,
+      row.noteText
+    ];
+    values.forEach((value) => {
+      const td = document.createElement('td');
+      td.className = 'py-2 pr-4';
+      td.textContent = String(value ?? '');
+      tr.appendChild(td);
+    });
     tbody.appendChild(tr);
   });
 

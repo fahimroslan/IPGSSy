@@ -1,5 +1,6 @@
 import { getAllPrograms } from '../../db/repositories/programsRepo.js';
 import { getAllStudents } from '../../db/repositories/studentsRepo.js';
+import { escapeHtml } from '../../utils/dom.js';
 
 const STATUS_BADGES = {
   active: 'bg-emerald-100 text-emerald-700',
@@ -55,6 +56,11 @@ export async function renderStudents(deps = {}) {
 
   items.forEach((student, index) => {
     const suspended = (student.status || '').toLowerCase() === 'suspended';
+    const safeName = escapeHtml(student.name || '-');
+    const safeStatus = escapeHtml(student.status || 'Active');
+    const safeStudentId = escapeHtml(student.studentId || '-');
+    const safeProgram = escapeHtml(programMap[student.programId] || '-');
+    const safeIntake = escapeHtml(student.intake || '-');
     const card = document.createElement('div');
     card.dataset.studentId = student.id;
     card.className = [
@@ -78,12 +84,12 @@ export async function renderStudents(deps = {}) {
       <div class="grid grid-cols-1 lg:grid-cols-12 gap-2 w-full items-center text-sm">
         <div class="flex items-center gap-3 lg:col-span-4">
           <span class="text-xs text-gray-400">#${index + 1}</span>
-          <span class="font-semibold ${suspended ? 'text-red-700' : ''}">${student.name || '-'}</span>
-          <span class="text-xs px-2 py-0.5 rounded-full ${statusBadgeClass(student.status)}">${student.status || 'Active'}</span>
+          <span class="font-semibold ${suspended ? 'text-red-700' : ''}">${safeName}</span>
+          <span class="text-xs px-2 py-0.5 rounded-full ${statusBadgeClass(student.status)}">${safeStatus}</span>
         </div>
-        <div class="text-xs font-mono text-gray-500 lg:col-span-2">${student.studentId || '-'}</div>
-        <div class="text-xs text-gray-500 lg:col-span-3">${programMap[student.programId] || '-'}</div>
-        <div class="text-xs text-gray-500 lg:col-span-1">${student.intake || '-'}</div>
+        <div class="text-xs font-mono text-gray-500 lg:col-span-2">${safeStudentId}</div>
+        <div class="text-xs text-gray-500 lg:col-span-3">${safeProgram}</div>
+        <div class="text-xs text-gray-500 lg:col-span-1">${safeIntake}</div>
         <div class="flex items-center gap-2 text-xs lg:text-sm justify-end lg:col-span-2">
           <button class="px-3 py-1 rounded bg-gray-100 text-gray-700" data-action="view-profile" data-id="${student.id}">Profile</button>
           <button class="px-3 py-1 rounded bg-blue-600 text-white" data-action="edit-student" data-id="${student.id}">Edit</button>

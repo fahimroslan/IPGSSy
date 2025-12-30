@@ -1,0 +1,1045 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>PG Student Manager — Stage 3</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <!-- Tailwind (quick styling) -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <!-- Dexie (IndexedDB helper) -->
+  <script src="https://unpkg.com/dexie@4/dist/dexie.min.js"></script>
+  <!-- SheetJS (Excel import/export) -->
+  <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+  <!-- JSZip (zip backups) -->
+  <script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+  <!-- FileSaver (save blobs) -->
+  <script src="https://cdn.jsdelivr.net/npm/file-saver@2.0.5/dist/FileSaver.min.js"></script>
+  <!-- Custom UI tweaks -->
+  <link rel="stylesheet" href="src/styles/ui.css" />
+</head>
+<body class="bg-gray-50 text-gray-800">
+  <div class="max-w-7xl mx-auto p-4">
+    <header class="mb-6">
+      <h1 class="text-2xl font-bold">Postgraduate Student Manager</h1>
+      <p class="text-sm text-gray-600">Stage 3 · Excel Import/Export & Full Backup</p>
+</header>
+    <!-- Tabs -->
+    <div class="mb-4 flex gap-2 flex-wrap items-center">
+      <button class="tab px-3 py-2 rounded bg-blue-600 text-white" data-tab="dashboard">Dashboard</button>
+      <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="students">Students</button>
+      <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="profile">Student Profile</button>
+      <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="programs">Programs</button>
+      <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="results">Results</button>
+      <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="reports">Student Results</button>
+      <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="finance">Agent</button>
+      <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="ledger">Finance</button>
+      <button class="tab px-3 py-2 rounded bg-gray-200" data-tab="import">Import/Export</button>
+      <button id="btn-backup-top" class="ml-auto bg-purple-600 hover:bg-purple-700 text-white text-sm font-medium rounded px-3 py-2 shadow">
+        Export Backup (.zip)
+      </button>
+    </div>
+
+    <!-- DASHBOARD -->
+    <section id="panel-dashboard" class="space-y-4">
+      <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+        <div class="bg-white rounded shadow p-4">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Total Students</p>
+          <p class="text-3xl font-semibold mt-2" id="dashboard-total-students">0</p>
+          <p class="text-xs text-gray-500 mt-1">Active and inactive records</p>
+        </div>
+        <div class="bg-white rounded shadow p-4">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Total Programs</p>
+          <p class="text-3xl font-semibold mt-2" id="dashboard-total-programs">0</p>
+          <p class="text-xs text-gray-500 mt-1">MQA-approved offerings</p>
+        </div>
+        <div class="bg-white rounded shadow p-4">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Total Agents</p>
+          <p class="text-3xl font-semibold mt-2" id="dashboard-total-agents">0</p>
+          <p class="text-xs text-gray-500 mt-1">Internal + external</p>
+        </div>
+        <div class="bg-white rounded shadow p-4">
+          <p class="text-xs uppercase tracking-wide text-gray-500">Collected Fees</p>
+          <p class="text-3xl font-semibold mt-2" id="dashboard-total-collected">RM 0.00</p>
+          <p class="text-xs text-gray-500 mt-1" id="dashboard-collected-percentage">0% of billed</p>
+        </div>
+      </div>
+
+      <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div class="bg-white rounded shadow p-4">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold">Financial Snapshot</h3>
+            <span class="text-xs text-gray-500" id="dashboard-last-updated"></span>
+          </div>
+          <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+            <div class="bg-gray-50 rounded p-3">
+              <dt class="text-gray-500 uppercase text-xs tracking-wide">Total Billed</dt>
+              <dd class="text-xl font-semibold mt-1" id="dashboard-total-billed">RM 0.00</dd>
+            </div>
+            <div class="bg-gray-50 rounded p-3">
+              <dt class="text-gray-500 uppercase text-xs tracking-wide">Outstanding (Pending + Overdue)</dt>
+              <dd class="text-xl font-semibold mt-1 text-amber-600" id="dashboard-total-outstanding">RM 0.00</dd>
+            </div>
+            <div class="bg-gray-50 rounded p-3">
+              <dt class="text-gray-500 uppercase text-xs tracking-wide">Pending</dt>
+              <dd class="text-xl font-semibold mt-1" id="dashboard-total-pending">RM 0.00</dd>
+            </div>
+            <div class="bg-gray-50 rounded p-3">
+              <dt class="text-gray-500 uppercase text-xs tracking-wide">Overdue</dt>
+              <dd class="text-xl font-semibold mt-1 text-red-600" id="dashboard-total-overdue">RM 0.00</dd>
+            </div>
+          </dl>
+        </div>
+
+        <div class="bg-white rounded shadow p-4">
+          <div class="flex items-center justify-between mb-4">
+            <h3 class="font-semibold">Students by Program</h3>
+            <span class="text-xs text-gray-500" id="dashboard-program-total">0 programs</span>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead>
+                <tr class="text-left border-b">
+                  <th class="py-2 pr-4">Program</th>
+                  <th class="py-2 pr-4">Students</th>
+                  <th class="py-2 pr-4">% of Total</th>
+                </tr>
+              </thead>
+              <tbody id="dashboard-program-rows"></tbody>
+            </table>
+            <p class="text-xs text-gray-500 mt-3 hidden" id="dashboard-program-empty">No programs found.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STUDENT PROFILE -->
+    <section id="panel-profile" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded shadow">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h2 class="font-semibold">Student Profile</h2>
+          </div>
+          <div class="flex flex-col gap-2 w-full max-w-sm lg:max-w-xs">
+            <label for="profile-student-search" class="text-sm font-medium text-gray-700">Student Search</label>
+            <input
+              id="profile-student-search"
+              class="border rounded px-3 py-2 text-sm"
+              type="text"
+              placeholder="Search by name, student ID, email, or phone"
+            />
+            <p id="profile-selection-label" class="text-xs text-gray-500">No student selected.</p>
+            <button
+              id="profile-clear-selection"
+              class="text-sm text-gray-600 underline self-start hidden"
+              type="button"
+            >
+              Clear selection
+            </button>
+          </div>
+        </div>
+        <div class="mt-2">
+          <p class="text-sm text-gray-500" id="profile-empty"></p>
+          <div class="overflow-x-auto mt-3 hidden" id="profile-search-results">
+            <table class="min-w-full text-sm">
+              <thead>
+                <tr class="text-left border-b">
+                  <th class="py-2 pr-4">Name</th>
+                  <th class="py-2 pr-4">Student ID</th>
+                  <th class="py-2 pr-4">Program</th>
+                  <th class="py-2 pr-4">Status</th>
+                </tr>
+              </thead>
+              <tbody id="profile-search-rows"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <div id="profile-content" class="hidden space-y-4">
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          <div class="bg-white rounded shadow p-4">
+            <div class="flex items-center justify-between">
+              <div>
+                <p class="text-xs uppercase text-gray-500 tracking-wide">Student</p>
+                <p class="text-2xl font-semibold mt-1" id="profile-name">-</p>
+              </div>
+              <span id="profile-status" class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600">-</span>
+            </div>
+            <div class="flex items-center gap-2 mt-4">
+              <label class="text-sm text-gray-600">Status</label>
+              <select id="profile-status-select" class="border rounded px-3 py-2 text-sm">
+                <option value="Active">Active</option>
+                <option value="Defer">Defer</option>
+                <option value="Withdraw">Withdraw</option>
+                <option value="Suspended">Suspended</option>
+              </select>
+              <button id="profile-status-save" class="bg-blue-600 text-white px-3 py-2 rounded text-sm">Update</button>
+            </div>
+            <p id="profile-academic-warning" class="text-xs text-red-600 mt-2 hidden"></p>
+            <dl class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-4">
+              <div>
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Program</dt>
+                <dd class="font-medium mt-1" id="profile-program">-</dd>
+              </div>
+              <div>
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Fee Group</dt>
+                <dd class="font-medium mt-1" id="profile-feegroup">-</dd>
+              </div>
+              <div>
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Agent</dt>
+                <dd class="font-medium mt-1" id="profile-agent">-</dd>
+              </div>
+              <div>
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Payment Plan</dt>
+                <dd class="font-medium mt-1" id="profile-payment-plan">-</dd>
+              </div>
+              <div>
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Intake</dt>
+                <dd class="font-medium mt-1" id="profile-intake">-</dd>
+              </div>
+              <div>
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Registration Date</dt>
+                <dd class="font-medium mt-1" id="profile-registration">-</dd>
+              </div>
+            </dl>
+            <dl class="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm mt-4">
+              <div>
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Email</dt>
+                <dd class="font-medium mt-1 break-all" id="profile-email">-</dd>
+              </div>
+              <div>
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Phone</dt>
+                <dd class="font-medium mt-1" id="profile-phone">-</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div class="bg-white rounded shadow p-4">
+            <h3 class="font-semibold mb-3">Ledger Summary</h3>
+            <dl class="grid grid-cols-1 sm:grid-cols-2 gap-4 text-sm">
+              <div class="bg-gray-50 rounded p-3">
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Total Billed</dt>
+                <dd class="text-xl font-semibold mt-1" id="profile-ledger-billed">RM 0.00</dd>
+              </div>
+              <div class="bg-gray-50 rounded p-3">
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Collected</dt>
+                <dd class="text-xl font-semibold mt-1 text-emerald-600" id="profile-ledger-collected">RM 0.00</dd>
+              </div>
+              <div class="bg-gray-50 rounded p-3">
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Outstanding</dt>
+                <dd class="text-xl font-semibold mt-1 text-amber-600" id="profile-ledger-outstanding">RM 0.00</dd>
+              </div>
+              <div class="bg-gray-50 rounded p-3">
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Overdue</dt>
+                <dd class="text-xl font-semibold mt-1 text-red-600" id="profile-ledger-overdue">RM 0.00</dd>
+              </div>
+              <div class="bg-gray-50 rounded p-3 sm:col-span-2">
+                <dt class="text-gray-500 uppercase text-xs tracking-wide">Discounts</dt>
+                <dd class="text-xl font-semibold mt-1" id="profile-ledger-discount">RM 0.00</dd>
+              </div>
+            </dl>
+          </div>
+        </div>
+
+        <div class="bg-white rounded shadow p-4">
+          <h3 class="font-semibold mb-3">Ledger Details</h3>
+          <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
+            <div>
+              <h4 class="text-sm font-semibold text-gray-600 mb-2">Invoices</h4>
+              <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                  <thead>
+                    <tr class="text-left border-b">
+                      <th class="py-2 pr-4">Fee</th>
+                      <th class="py-2 pr-4">Amount</th>
+                      <th class="py-2 pr-4">Paid</th>
+                      <th class="py-2 pr-4">Status</th>
+                      <th class="py-2 pr-4">Date</th>
+                    </tr>
+                  </thead>
+                  <tbody id="profile-invoice-rows"></tbody>
+                </table>
+              </div>
+              <p class="text-xs text-gray-500 mt-2 hidden" id="profile-invoice-empty">No invoices yet.</p>
+            </div>
+            <div>
+              <h4 class="text-sm font-semibold text-gray-600 mb-2">Payments / Adjustments</h4>
+              <div class="overflow-x-auto">
+                <table class="min-w-full text-sm">
+                  <thead>
+                    <tr class="text-left border-b">
+                      <th class="py-2 pr-4">Date</th>
+                      <th class="py-2 pr-4">Type</th>
+                      <th class="py-2 pr-4">Amount</th>
+                      <th class="py-2 pr-4">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody id="profile-payment-rows"></tbody>
+                </table>
+              </div>
+              <p class="text-xs text-gray-500 mt-2 hidden" id="profile-payment-empty">No payments recorded.</p>
+            </div>
+          </div>
+        </div>
+
+        <div class="bg-white rounded shadow p-4">
+          <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-3">
+            <div>
+              <h3 class="font-semibold">Academic Progress</h3>
+              <p class="text-sm text-gray-600">Results overview for all completed courses.</p>
+            </div>
+            <div class="text-sm text-gray-700">
+              <span class="font-semibold">GPA:</span> <span id="profile-gpa">0.00</span>
+              <span class="ml-4 font-semibold">Credits:</span> <span id="profile-credits">0</span>
+            </div>
+          </div>
+          <div class="overflow-x-auto">
+            <table class="min-w-full text-sm">
+              <thead>
+                <tr class="text-left border-b">
+                  <th class="py-2 pr-4">Course</th>
+                  <th class="py-2 pr-4">Semester</th>
+                  <th class="py-2 pr-4">Mark</th>
+                  <th class="py-2 pr-4">Grade</th>
+                  <th class="py-2 pr-4">Point</th>
+                  <th class="py-2 pr-4">Credit</th>
+                </tr>
+              </thead>
+              <tbody id="profile-result-rows"></tbody>
+            </table>
+            <p class="text-xs text-gray-500 mt-3 hidden" id="profile-result-empty">No results available yet.</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- STUDENTS -->
+    <section id="panel-students" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded shadow space-y-4">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div>
+            <h2 class="font-semibold mb-1">Bulk Add Students</h2>
+            <p class="text-sm text-gray-500">Type or paste multiple students at once. Each row is saved as a separate record.</p>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button type="button" id="student-grid-add-row" class="bg-emerald-600 text-white rounded px-4 py-2 text-sm shadow">
+              Add Row
+            </button>
+            <button type="button" id="student-grid-clear" class="bg-gray-200 text-gray-800 rounded px-4 py-2 text-sm">
+              Clear Rows
+            </button>
+          </div>
+        </div>
+        <div class="overflow-x-auto border border-gray-100 rounded-xl">
+          <table class="min-w-full text-xs md:text-sm" id="student-entry-grid">
+            <thead class="bg-gray-50 text-gray-600 uppercase tracking-wide text-[11px]">
+              <tr>
+                <th class="p-2 text-left">Student ID</th>
+                <th class="p-2 text-left">Full Name</th>
+                <th class="p-2 text-left">Email</th>
+                <th class="p-2 text-left">Phone</th>
+                <th class="p-2 text-left">Registration Date</th>
+                <th class="p-2 text-left">Semester</th>
+                <th class="p-2 text-left">Program</th>
+                <th class="p-2 text-left">Fee Group</th>
+                <th class="p-2 text-left">Payment Plan</th>
+                <th class="p-2 text-left">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="student-entry-grid-body"></tbody>
+          </table>
+          <p class="text-sm text-gray-500 text-center py-4" id="student-entry-empty">
+            No rows yet. Click <strong>Add Row</strong> to start a batch.
+          </p>
+        </div>
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+          <div class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              id="student-grid-save"
+              class="bg-blue-600 text-white rounded px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled
+            >
+              Save All Rows
+            </button>
+          </div>
+          <span id="student-grid-status" class="text-sm text-gray-500">Ready for bulk entry.</span>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <div class="flex flex-col md:flex-row md:items-start md:justify-between gap-3 mb-3">
+          <h2 class="font-semibold">Single Student Form</h2>
+          <p class="text-xs text-gray-500 md:text-right">
+            Use this form when editing an existing student or when you only need to add one record.
+          </p>
+        </div>
+        <form id="form-student" class="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <label class="text-sm text-gray-700">
+            Student ID (optional)
+            <input class="border rounded px-3 py-2 w-full" name="studentId" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Full Name
+            <input class="border rounded px-3 py-2 w-full" name="name" required />
+          </label>
+          <label class="text-sm text-gray-700">
+            Email
+            <input class="border rounded px-3 py-2 w-full" name="email" type="email" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Phone
+            <input class="border rounded px-3 py-2 w-full" name="phone" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Registration Date
+            <input class="border rounded px-3 py-2 w-full" name="registrationDate" type="date" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Semester (e.g. 2025-02)
+            <input class="border rounded px-3 py-2 w-full" name="intake" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Program
+            <select class="border rounded px-3 py-2 w-full" name="programId" id="student-program">
+              <option value="">Select Program</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Fee Group (optional)
+            <select class="border rounded px-3 py-2 w-full" name="feeGroupId" id="student-feegroup">
+              <option value="">Select Fee Group</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Payment Plan
+            <select class="border rounded px-3 py-2 w-full" name="paymentPlan" id="student-payment-plan">
+              <option value="lump">Lump Sum</option>
+              <option value="installment6">6-Month Installment</option>
+              <option value="installment12">12-Month Installment</option>
+            </select>
+          </label>
+          <div class="col-span-1 md:col-span-3 flex items-center gap-3">
+            <button id="student-submit" class="bg-blue-600 text-white rounded px-4 py-2 mt-1">
+              Save Student
+            </button>
+            <button type="button" id="student-cancel-edit" class="hidden bg-gray-500 text-white rounded px-4 py-2 mt-1">
+              Cancel Edit
+            </button>
+            <span id="student-editing-label" class="hidden text-sm text-gray-600 mt-1">Editing existing student…</span>
+          </div>
+        </form>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow space-y-4">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-3">
+          <div>
+            <h2 class="font-semibold">Students</h2>
+            <p class="text-sm text-gray-500">Search and click a row to load the student profile.</p>
+          </div>
+          <div class="flex flex-col gap-2 w-full lg:w-80">
+            <label for="students-search" class="text-sm font-medium text-gray-700">Student Search</label>
+            <input
+              id="students-search"
+              class="border rounded px-3 py-2 text-sm"
+              type="text"
+              placeholder="Search by name, student ID, email, or phone"
+            />
+          </div>
+        </div>
+        <div class="overflow-x-auto rounded-xl border border-gray-100" id="students-table-wrapper">
+          <div class="min-w-full" id="students-list"></div>
+        </div>
+        <p class="text-sm text-gray-500 hidden" id="students-empty-state">No students found.</p>
+      </div>
+    </section>
+
+    <!-- PROGRAMS -->
+    <section id="panel-programs" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold mb-3">Add Program</h2>
+        <form id="form-program" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <label class="text-sm text-gray-700">
+            Program Name (e.g. MBA)
+            <input class="border rounded px-3 py-2 w-full" name="name" required />
+          </label>
+          <label class="text-sm text-gray-700">
+            MQA Approval No.
+            <input class="border rounded px-3 py-2 w-full" name="mqaCode" placeholder="e.g. MQA/PA12345" required />
+          </label>
+          <label class="text-sm text-gray-700">
+            Program Type
+            <select class="border rounded px-3 py-2 w-full" name="level" required>
+              <option value="">Select Type</option>
+              <option value="Master">Master</option>
+              <option value="PhD">PhD</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Mode
+            <select class="border rounded px-3 py-2 w-full" name="mode" required>
+              <option value="">Select Mode</option>
+              <option value="Coursework">Coursework</option>
+              <option value="Full-Research">Full-Research</option>
+              <option value="Mix-Mode">Mix-Mode</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Project Component
+            <select class="border rounded px-3 py-2 w-full" name="projectType" required>
+              <option value="">Select Option</option>
+              <option value="Project">Project</option>
+              <option value="Dissertation">Dissertation</option>
+              <option value="Thesis">Thesis</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Duration (years)
+            <input class="border rounded px-3 py-2 w-full" name="duration" type="number" min="1" step="1" placeholder="e.g. 3" required />
+          </label>
+          <div class="col-span-1 md:col-span-4 border rounded p-4 bg-gray-50 space-y-3">
+            <div class="flex items-center justify-between">
+              <h3 class="text-sm font-semibold text-gray-700">Courses for this Program</h3>
+              <span id="program-course-editing-label" class="hidden text-xs text-gray-500">Editing course entry…</span>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-3">
+              <label class="text-sm text-gray-700">
+                Code (e.g. MBA701)
+                <input class="border rounded px-3 py-2 w-full" id="program-course-code" />
+              </label>
+              <label class="text-sm text-gray-700 md:col-span-2">
+                Title
+                <input class="border rounded px-3 py-2 w-full" id="program-course-title" />
+              </label>
+              <label class="text-sm text-gray-700">
+                Credit Hours
+                <input class="border rounded px-3 py-2 w-full" id="program-course-credit" type="number" step="0.5" />
+              </label>
+              <div class="col-span-1 md:col-span-4 flex items-center gap-2">
+                <button type="button" id="program-course-add" class="bg-teal-600 text-white rounded px-4 py-2">Add Course</button>
+                <button type="button" id="program-course-cancel" class="hidden bg-gray-200 text-gray-700 rounded px-3 py-2">Cancel</button>
+              </div>
+            </div>
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-sm border rounded bg-white">
+                <thead>
+                  <tr class="text-left border-b">
+                    <th class="py-2 px-2">#</th>
+                    <th class="py-2 px-2">Code</th>
+                    <th class="py-2 px-2">Title</th>
+                    <th class="py-2 px-2">Credit</th>
+                    <th class="py-2 px-2">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="program-course-drafts"></tbody>
+              </table>
+            </div>
+          </div>
+          <div class="col-span-1 md:col-span-4 flex items-center gap-2 mt-1">
+            <button id="program-submit" class="bg-blue-600 text-white rounded px-4 py-2">
+              Save Program
+            </button>
+            <button type="button" id="program-cancel-edit" class="hidden bg-gray-200 text-gray-700 rounded px-4 py-2">
+              Cancel Edit
+            </button>
+            <span id="program-editing-label" class="hidden text-sm text-gray-600">Editing existing program…</span>
+          </div>
+        </form>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold">Programs</h2>
+          <button id="refresh-programs" class="text-sm px-3 py-1 rounded bg-gray-100">Refresh</button>
+        </div>
+      <div class="overflow-x-auto">
+        <table class="min-w-full text-sm" id="tbl-programs">
+          <thead>
+            <tr>
+              <th class="py-2 pr-4 text-left border-b">#</th>
+                <th class="py-2 pr-4 text-left border-b">Program</th>
+                <th class="py-2 pr-4 text-left border-b">MQA No.</th>
+                <th class="py-2 pr-4 text-left border-b">Type</th>
+                <th class="py-2 pr-4 text-left border-b">Mode</th>
+                <th class="py-2 pr-4 text-left border-b">Courses</th>
+                <th class="py-2 pr-4 text-left border-b">Project Component</th>
+                <th class="py-2 pr-4 text-left border-b">Duration (years)</th>
+                <th class="py-2 pr-4 text-left border-b">Actions</th>
+              </tr>
+          </thead>
+          <tbody id="rows-programs"></tbody>
+        </table>
+      </div>
+    </div>
+    </section>
+
+    <!-- RESULTS -->
+    <section id="panel-results" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold mb-3">Add Result</h2>
+        <form id="form-result" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <label class="text-sm text-gray-700">
+            Student
+            <select class="border rounded px-3 py-2 w-full" name="studentId" id="result-student" required>
+              <option value="">Select Student</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Course
+            <select class="border rounded px-3 py-2 w-full" name="courseId" id="result-course" required disabled>
+              <option value="">Select Course</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Semester (e.g. 2025-02)
+            <input class="border rounded px-3 py-2 w-full" name="semester" required />
+          </label>
+          <label class="text-sm text-gray-700">
+            Mark (0-100)
+            <input class="border rounded px-3 py-2 w-full" name="mark" type="number" step="0.01" required />
+          </label>
+          <div class="col-span-1 md:col-span-4 flex items-center gap-3">
+            <button class="bg-blue-600 text-white rounded px-4 py-2">Save Result</button>
+            <span id="result-preview" class="text-sm text-gray-600"></span>
+          </div>
+        </form>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <div class="flex items-center justify-between mb-3">
+          <h2 class="font-semibold">All Results</h2>
+          <button id="refresh-results" class="text-sm px-3 py-1 rounded bg-gray-100">Refresh</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm" id="tbl-results">
+            <thead>
+              <tr>
+                <th class="py-2 pr-4 text-left border-b">#</th>
+                <th class="py-2 pr-4 text-left border-b">Student</th>
+                <th class="py-2 pr-4 text-left border-b">Course</th>
+                <th class="py-2 pr-4 text-left border-b">Credit</th>
+                <th class="py-2 pr-4 text-left border-b">Semester</th>
+                <th class="py-2 pr-4 text-left border-b">Mark</th>
+                <th class="py-2 pr-4 text-left border-b">Grade</th>
+                <th class="py-2 pr-4 text-left border-b">Point</th>
+              </tr>
+            </thead>
+            <tbody id="rows-results"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- FINANCE -->
+    <section id="panel-finance" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold mb-3">Agent Management</h2>
+        <form id="form-agent" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <label class="text-sm text-gray-700">
+            Agent Name
+            <input class="border rounded px-3 py-2 w-full" name="name" required />
+          </label>
+          <label class="text-sm text-gray-700">
+            Email
+            <input class="border rounded px-3 py-2 w-full" name="email" type="email" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Phone
+            <input class="border rounded px-3 py-2 w-full" name="phone" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Agent Type
+            <select class="border rounded px-3 py-2 w-full" name="type" id="agent-type">
+              <option value="external">External Agent</option>
+              <option value="internal">Internal Marketing</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Agreement Link
+            <input class="border rounded px-3 py-2 w-full" name="agreementLink" type="url" placeholder="https://example.com/agreement.pdf" />
+          </label>
+          <label class="text-sm text-gray-700 md:col-span-2">
+            Agreement Notes
+            <input class="border rounded px-3 py-2 w-full" name="agreement" />
+          </label>
+          <div class="col-span-1 md:col-span-4 flex items-center flex-wrap gap-3 mt-1">
+            <button id="agent-submit" class="bg-blue-600 text-white rounded px-4 py-2">Save Agent</button>
+            <button type="button" id="agent-cancel-edit" class="hidden bg-gray-200 text-gray-700 rounded px-4 py-2">Cancel Edit</button>
+            <span id="agent-editing-label" class="hidden text-sm text-gray-600">Editing existing agent...</span>
+          </div>
+        </form>
+        <div class="overflow-x-auto mt-4">
+          <table class="min-w-full text-sm" id="tbl-agents">
+            <thead>
+              <tr>
+                <th class="py-2 pr-4 text-left border-b">Code</th>
+                <th class="py-2 pr-4 text-left border-b">Name</th>
+                <th class="py-2 pr-4 text-left border-b">Type</th>
+                <th class="py-2 pr-4 text-left border-b">Email</th>
+                <th class="py-2 pr-4 text-left border-b">Phone</th>
+                <th class="py-2 pr-4 text-left border-b">Agreement Link</th>
+                <th class="py-2 pr-4 text-left border-b">Notes</th>
+                <th class="py-2 pr-4 text-left border-b">Status</th>
+                <th class="py-2 pr-4 text-left border-b">Actions</th>
+              </tr>
+            </thead>
+            <tbody id="rows-agents"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold mb-3">Fee Group Management</h2>
+        <p class="text-sm text-gray-600 mb-2">Fee groups tie a program and agent to a fee structure (registration, tuition, convocation).</p>
+        <form id="form-feegroup" class="grid grid-cols-1 md:grid-cols-4 gap-3">
+          <label class="text-sm text-gray-700">
+            Fee Group Name
+            <input class="border rounded px-3 py-2 w-full" name="name" required />
+          </label>
+          <label class="text-sm text-gray-700">
+            Program
+            <select class="border rounded px-3 py-2 w-full" name="programId" id="fee-program" required>
+              <option value="">Select Program</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Agent
+            <select class="border rounded px-3 py-2 w-full" name="agentId" id="fee-agent" required>
+              <option value="">Select Agent</option>
+            </select>
+          </label>
+          <label class="text-sm text-gray-700">
+            Copy Fees from Internal Marketing
+            <select class="border rounded px-3 py-2 w-full" id="fee-internal-template">
+              <option value="">No Template</option>
+            </select>
+            <span class="text-xs text-gray-500 mt-1 block">Copies registration, tuition, and convocation amounts.</span>
+          </label>
+          <label class="text-sm text-gray-700">
+            Registration Fee
+            <input class="border rounded px-3 py-2 w-full" name="registrationFee" type="number" step="0.01" value="0" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Tuition Fee
+            <input class="border rounded px-3 py-2 w-full" name="tuitionFee" type="number" step="0.01" value="0" />
+          </label>
+          <label class="text-sm text-gray-700">
+            Convocation Fee
+            <input class="border rounded px-3 py-2 w-full" name="convocationFee" type="number" step="0.01" value="0" />
+          </label>
+          <button class="col-span-1 md:col-span-4 bg-blue-600 text-white rounded px-4 py-2 mt-1">Save Fee Group</button>
+        </form>
+        <div class="overflow-x-auto mt-4">
+          <table class="min-w-full text-sm" id="tbl-feegroups">
+            <thead>
+              <tr>
+                <th class="py-2 pr-4 text-left border-b">#</th>
+                <th class="py-2 pr-4 text-left border-b">Group</th>
+                <th class="py-2 pr-4 text-left border-b">Index</th>
+                <th class="py-2 pr-4 text-left border-b">Program (MQA)</th>
+                <th class="py-2 pr-4 text-left border-b">Agent (Code)</th>
+                <th class="py-2 pr-4 text-left border-b">Registration</th>
+                <th class="py-2 pr-4 text-left border-b">Tuition</th>
+                <th class="py-2 pr-4 text-left border-b">Convocation</th>
+                <th class="py-2 pr-4 text-left border-b">Total</th>
+              </tr>
+            </thead>
+            <tbody id="rows-feegroups"></tbody>
+          </table>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- REPORTS -->
+    <section id="panel-reports" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold mb-3">View Student Results & GPA/CGPA</h2>
+        <div class="flex flex-col md:flex-row gap-3 items-start">
+          <select class="border rounded px-3 py-2" id="report-student">
+            <option value="">Select Student</option>
+          </select>
+          <button id="btn-show-report" class="bg-blue-600 text-white rounded px-4 py-2">Show</button>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <h3 class="font-semibold mb-2">Summary</h3>
+        <div id="summary-box" class="text-sm text-gray-700">Select a student to view summary.</div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <h3 class="font-semibold mb-2">Results by Semester</h3>
+        <div id="report-container" class="space-y-6"></div>
+      </div>
+    </section>
+
+    <!-- STUDENT FINANCE (per-student ledger) -->
+    <section id="panel-ledger" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded shadow space-y-4">
+        <div>
+          <h2 class="font-semibold mb-1">Finance Overview</h2>
+          <p class="text-sm text-gray-600">Monitor billed vs collected totals across students or drill into a specific program, agent, or student.</p>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 items-end">
+          <label class="flex flex-col space-y-2 text-sm text-gray-700">
+            <span class="font-medium">Program</span>
+            <select class="border rounded px-3 py-2 w-full" id="ledger-filter-program">
+              <option value="">All Programs</option>
+            </select>
+          </label>
+          <label class="flex flex-col space-y-2 text-sm text-gray-700">
+            <span class="font-medium">Agent</span>
+            <select class="border rounded px-3 py-2 w-full" id="ledger-filter-agent">
+              <option value="">All Agents</option>
+            </select>
+          </label>
+          <div class="flex flex-col space-y-2 text-sm text-gray-700">
+            <div class="flex items-center justify-between">
+              <label for="ledger-filter-student-search" class="font-medium">Student</label>
+              <span class="text-xs text-gray-500">Live search</span>
+            </div>
+            <input
+              type="text"
+              id="ledger-filter-student-search"
+              class="border rounded px-3 py-2 w-full text-sm"
+              placeholder="Type a name, ID, email, or phone"
+            />
+          </div>
+          <div class="flex">
+            <button
+              type="button"
+              id="ledger-filter-reset"
+              class="w-full bg-gray-900 text-white rounded px-4 py-2 h-full flex items-center justify-center text-sm font-medium"
+            >
+              Reset Filters
+            </button>
+          </div>
+        </div>
+        <div class="grid grid-cols-1 md:grid-cols-4 gap-4 text-sm" id="ledger-overview-cards">
+          <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
+            <p class="text-xs uppercase tracking-wide text-gray-500">Total Billed</p>
+            <p class="text-2xl font-semibold mt-1" id="ledger-card-billed">-</p>
+            <p class="text-xs text-gray-500 mt-1" id="ledger-card-billed-note">Awaiting data</p>
+          </div>
+          <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
+            <p class="text-xs uppercase tracking-wide text-gray-500">Collected</p>
+            <p class="text-2xl font-semibold mt-1 text-emerald-600" id="ledger-card-collected">-</p>
+            <p class="text-xs text-gray-500 mt-1" id="ledger-card-collected-note">Awaiting data</p>
+          </div>
+          <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
+            <p class="text-xs uppercase tracking-wide text-gray-500">Pending</p>
+            <p class="text-2xl font-semibold mt-1 text-amber-600" id="ledger-card-pending">-</p>
+            <p class="text-xs text-gray-500 mt-1" id="ledger-card-pending-note">Awaiting data</p>
+          </div>
+          <div class="rounded-xl border border-gray-200 p-4 bg-gray-50">
+            <p class="text-xs uppercase tracking-wide text-gray-500">Overdue</p>
+            <p class="text-2xl font-semibold mt-1 text-red-600" id="ledger-card-overdue">-</p>
+            <p class="text-xs text-gray-500 mt-1" id="ledger-card-overdue-note">Awaiting data</p>
+          </div>
+        </div>
+        <p class="text-xs text-gray-500" id="ledger-discount-summary">Discounts Granted: RM 0.00</p>
+        <div class="overflow-x-auto">
+        <table class="min-w-full text-sm" id="tbl-ledger-overview">
+          <thead>
+            <tr>
+              <th class="py-2 pr-4 text-left border-b">#</th>
+              <th class="py-2 pr-4 text-left border-b">Student</th>
+              <th class="py-2 pr-4 text-left border-b">Student ID</th>
+              <th class="py-2 pr-4 text-left border-b">Program</th>
+              <th class="py-2 pr-4 text-left border-b">Agent</th>
+              <th class="py-2 pr-4 text-left border-b">Invoices</th>
+              <th class="py-2 pr-4 text-left border-b">Billed (RM)</th>
+              <th class="py-2 pr-4 text-left border-b">Collected (RM)</th>
+              <th class="py-2 pr-4 text-left border-b">Discount (RM)</th>
+              <th class="py-2 pr-4 text-left border-b">Pending (RM)</th>
+              <th class="py-2 pr-4 text-left border-b">Overdue (RM)</th>
+              <th class="py-2 pr-4 text-left border-b">Status</th>
+            </tr>
+          </thead>
+            <tbody id="rows-ledger-overview"></tbody>
+          </table>
+        </div>
+        <p class="text-sm text-gray-500 hidden" id="ledger-overview-empty">No students match the selected filters.</p>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4">
+          <div>
+            <h2 class="font-semibold mb-1">Student Finance Ledger</h2>
+            <p class="text-sm text-gray-600">Use the filtered list above and click a student to load their ledger.</p>
+          </div>
+          <div class="text-sm text-gray-700 flex flex-col gap-2 w-full lg:w-80">
+            <p id="ledger-student-active-label" class="text-xs text-gray-500">No student selected.</p>
+            <button
+              type="button"
+              id="ledger-clear-selection"
+              class="bg-gray-200 hover:bg-gray-300 text-gray-700 rounded px-3 py-2 text-sm font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+              disabled
+            >
+              Clear Selection
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <h3 class="font-semibold mb-2">Profile</h3>
+        <div id="ledger-profile" class="text-sm text-gray-700">
+          Select a student to view details.
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-2">
+          <div>
+            <h3 class="font-semibold">Invoices (Charges)</h3>
+            <p class="text-sm text-gray-600">Automatically created from fee group. You can add manual charges if needed.</p>
+          </div>
+          <button id="ledger-add-charge" class="text-sm px-3 py-2 rounded bg-gray-200">Add Manual Charge</button>
+        </div>
+        <div class="overflow-x-auto">
+          <table class="min-w-full text-sm" id="tbl-ledger-invoices">
+            <thead>
+              <tr>
+                <th class="py-2 pr-4 text-left border-b">#</th>
+                <th class="py-2 pr-4 text-left border-b">Fee</th>
+                <th class="py-2 pr-4 text-left border-b">Fee Group</th>
+                <th class="py-2 pr-4 text-left border-b">Amount</th>
+                <th class="py-2 pr-4 text-left border-b">Paid</th>
+                <th class="py-2 pr-4 text-left border-b">Balance</th>
+                <th class="py-2 pr-4 text-left border-b">Status</th>
+                <th class="py-2 pr-4 text-left border-b">Created</th>
+              </tr>
+            </thead>
+            <tbody id="rows-ledger-invoices"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <div class="flex flex-col md:flex-row md:items-center md:justify-between gap-3 mb-4">
+          <div>
+            <h3 class="font-semibold">Payments / Discounts</h3>
+            <p class="text-sm text-gray-600">Select an invoice above, then record a payment, discount, or manual charge.</p>
+          </div>
+          <div class="text-sm text-gray-700" id="ledger-balance-summary"></div>
+        </div>
+        <div class="grid grid-cols-1 xl:grid-cols-5 gap-4">
+          <form id="form-ledger-payment" class="xl:col-span-2 grid grid-cols-1 sm:grid-cols-2 gap-3">
+            <div class="text-sm text-gray-700 sm:col-span-2">
+              <p class="font-semibold text-gray-600">Selected Invoice</p>
+              <p class="text-xs text-gray-500 mb-1">Click a row in the invoice table above to choose the target invoice.</p>
+              <div id="ledger-selected-invoice" class="border rounded px-3 py-2 bg-gray-50 text-gray-800">No invoice selected</div>
+            </div>
+            <label class="text-sm text-gray-700">
+              Type
+              <select class="border rounded px-3 py-2 w-full" name="type">
+                <option value="credit">Credit (Payment)</option>
+                <option value="discount">Discount (Reduction)</option>
+                <option value="debit">Manual Charge</option>
+              </select>
+            </label>
+            <label class="text-sm text-gray-700">
+              Amount
+              <input class="border rounded px-3 py-2 w-full" name="amount" type="number" step="0.01" min="0" required />
+            </label>
+            <label class="text-sm text-gray-700">
+              Date
+              <input class="border rounded px-3 py-2 w-full" name="date" type="date" />
+            </label>
+            <label class="text-sm text-gray-700">
+              Note
+              <input class="border rounded px-3 py-2 w-full" name="note" />
+            </label>
+            <div class="flex gap-2 sm:col-span-2 items-center flex-wrap">
+              <button class="bg-blue-600 text-white rounded px-4 py-2 mt-1" id="ledger-payment-submit">Save Payment</button>
+              <button type="button" class="hidden bg-gray-500 text-white rounded px-4 py-2 mt-1" id="ledger-payment-cancel">Cancel Edit</button>
+              <span id="ledger-payment-editing-label" class="hidden text-sm text-gray-600 mt-2">Editing existing payment...</span>
+            </div>
+          </form>
+          <div class="xl:col-span-3 border-t xl:border-t-0 xl:border-l border-gray-100 pt-4 xl:pt-0 xl:pl-4">
+            <div class="overflow-x-auto">
+              <table class="min-w-full text-sm" id="tbl-ledger-payments">
+                <thead>
+                  <tr>
+                    <th class="py-2 pr-4 text-left border-b">#</th>
+                    <th class="py-2 pr-4 text-left border-b">Date</th>
+                    <th class="py-2 pr-4 text-left border-b">Type</th>
+                    <th class="py-2 pr-4 text-left border-b">Amount</th>
+                    <th class="py-2 pr-4 text-left border-b">Applied To</th>
+                    <th class="py-2 pr-4 text-left border-b">Note</th>
+                    <th class="py-2 pr-4 text-left border-b">Actions</th>
+                  </tr>
+                </thead>
+                <tbody id="rows-ledger-payments"></tbody>
+              </table>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- IMPORT / EXPORT -->
+    <section id="panel-import" class="hidden space-y-4">
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold mb-3">Export to Excel</h2>
+        <div class="flex flex-wrap gap-2">
+          <button id="export-students" class="bg-gray-800 text-white rounded px-4 py-2">Export Students</button>
+          <button id="export-programs" class="bg-gray-800 text-white rounded px-4 py-2">Export Programs</button>
+          <button id="export-courses" class="bg-gray-800 text-white rounded px-4 py-2">Export Courses</button>
+          <button id="export-results" class="bg-gray-800 text-white rounded px-4 py-2">Export Results</button>
+          <button id="export-agents" class="bg-gray-800 text-white rounded px-4 py-2">Export Agents</button>
+          <button id="export-feegroups" class="bg-gray-800 text-white rounded px-4 py-2">Export Fee Groups</button>
+          <button id="export-payments" class="bg-gray-800 text-white rounded px-4 py-2">Export Payments</button>
+          <button id="export-invoices" class="bg-gray-800 text-white rounded px-4 py-2">Export Invoices</button>
+          <button id="export-all-xlsx" class="bg-blue-600 text-white rounded px-4 py-2">Export ALL (one workbook)</button>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold mb-3">Import from Excel</h2>
+        <p class="text-sm text-gray-600 mb-2">
+          Supported sheets (case-insensitive):
+          <strong>Students</strong> only. Use the web app to manage programs, agents, fees, and results.
+        </p>
+        <ul class="text-sm text-gray-600 list-disc ml-5 mb-3">
+          <li><b>Students</b>: studentId, name, email, phone, intake, program (program name), status, registrationDate (optional)</li>
+        </ul>
+        <input type="file" id="import-file" accept=".xlsx,.xls" class="mb-3" />
+        <div class="flex gap-2 items-center">
+          <button id="btn-import" class="bg-green-600 text-white rounded px-4 py-2">Import</button>
+          <span id="import-status" class="text-sm text-gray-600"></span>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow">
+        <h2 class="font-semibold mb-3">Full Backup (ZIP)</h2>
+        <div class="flex flex-wrap gap-2 items-center">
+          <button id="btn-backup" class="bg-purple-600 text-white rounded px-4 py-2">Export Backup (.zip)</button>
+          <input type="file" id="restore-file" accept=".zip" />
+          <button id="btn-restore" class="bg-orange-600 text-white rounded px-4 py-2">Restore Backup</button>
+          <span id="restore-status" class="text-sm text-gray-600"></span>
+        </div>
+      </div>
+
+      <div class="bg-white p-4 rounded shadow border border-red-200">
+        <h2 class="font-semibold mb-2 text-red-700">Reset All Data</h2>
+        <p class="text-sm text-red-600 mb-3">
+          This clears every program, student, course, result, agent, fee group, invoice, payment, and ledger entry from the local database.
+          Make sure you have a backup before proceeding.
+        </p>
+        <button id="btn-reset-data" class="bg-red-600 hover:bg-red-700 text-white rounded px-4 py-2">
+          Reset Database
+        </button>
+      </div>
+    </section>
+  </div>
+
+  <script type="module" src="src/main.js"></script>
+  <footer class="mt-10 text-center text-xs text-gray-500">
+    Developed by MFR 2025
+  </footer>
+</body>
+</html>
+

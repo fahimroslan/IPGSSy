@@ -1,0 +1,1 @@
+navigator.cookieEnabled&&(Helper.log("Popup Js Loaded"),Helper.log("Helper Js Loaded"),Helper.showLoader(),Main.checkLoginStatus(),chrome.runtime.connect());

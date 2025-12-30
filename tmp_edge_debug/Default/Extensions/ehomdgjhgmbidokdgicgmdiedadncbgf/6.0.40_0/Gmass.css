@@ -1,0 +1,85 @@
+.InboxClass {
+	background-color: red;
+	width: 70px !important;
+	height: 26px !important;
+	color: white;
+	text-align: left;
+	letter-spacing: 1px;
+	padding-left: 3px;
+	background-image: url("https://cdn.gmass.us/images/gmass_button_icon-ver2.png");
+	background-position: right center;
+	background-repeat: no-repeat;
+	margin: 0px !important;
+	padding-top: 10px !important;
+
+}
+.InboxClassMini {
+	background-color: red;
+	width: 24px !important;
+	height: 26px !important;
+	color: white;
+	text-align: left;
+	letter-spacing: 1px;
+	padding-left: 3px;
+	background-image: url("https://cdn.gmass.us/images/gmass_button_icon-ver2.png");
+	background-position: right center;
+	background-repeat: no-repeat;
+	margin: 0px !important;
+	padding-top: 10px !important;
+}
+.InboxClassSettings {
+	width: 20px !important;
+	height: 26px !important;
+	background-color: #c42329;
+	margin: 0px 0px 0px 0px !important;
+	background-image: url("https://cdn.gmass.us/images/gmass_button_options-ver3.png");
+	background-position: center center;
+	background-repeat: no-repeat;
+	padding-top: 10px !important;
+}
+.GmailClassMini {
+	background-color: red;
+	width: 24px;
+	text-align: left;
+	letter-spacing: 1px;
+	padding-left: 3px;
+	background-image: url("https://cdn.gmass.us/images/gmass_button_icon-ver2.png");
+	background-position: right center;
+	background-repeat: no-repeat;
+}
+.GmailClassSettings {
+	width: 19px;
+	background-color: #c42329;
+	margin: 0px 0px 0px 0px;
+	background-image: url("https://cdn.gmass.us/images/gmass_button_options-ver3.png");
+	background-position: center center;
+	background-repeat: no-repeat;
+}
+.GmailClass {
+	background-color: red;
+	width: 70px;
+	text-align: left;
+	letter-spacing: 1px;
+	padding-left: 3px;
+	background-image: url("https://cdn.gmass.us/images/gmass_button_icon-ver2.png");
+	background-position: right center;
+	background-repeat: no-repeat;
+}
+.redbb{
+	color: red !important;
+}
+.b-close{
+    cursor:pointer;
+    position:absolute;
+    right:10px;
+    top:5px;
+}
+.GmailClass::after{
+
+   content: "GMass";
+}
+.InboxClass::after{
+
+   content: "GMASS";
+   letter-spacing: 0px;
+}​

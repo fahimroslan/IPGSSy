@@ -1,0 +1,373 @@
+<div class="extention-outer">
+	<div class="extention-header">
+		<div class="cc-hdr-item">
+			<a href="#" class="navig" id="navigateOpenId"></a>
+			<div class="cc-hdr-dropdown" id="dropMenuId" style="display: none;">
+				<div class="cc-hdr-droparrow"></div>
+				<div class="cc-mnulist">
+					<ul class="cc-mnulnk">
+						<li><a href="https://fluvid.com/privacy" target="_blank" title="" class="first"><i
+									class="fa fa-lock"></i>&nbsp;&nbsp;&nbsp;Privacy</a></li>
+						<li><a href="https://fluvid.com/terms" target="_blank" title=""><i
+									class="fa fa-info-circle"></i>&nbsp;&nbsp;&nbsp;Terms</a></li>
+						<li>
+							<a href="javascript:void(0)" id="vcc-logout" title="Logout">
+								<i class="fa fa-sign-out"></i>&nbsp;&nbsp;&nbsp;Logout
+							</a>
+						</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+		<span style="position:relative"> 
+			<img src="images/fluvid2.png" style="margin-left:5px; width:75px">
+			<span id="planNameId" style="color:#fff; font-size:10px; letter-spacing:1px; background:#f4529c; padding:0px 4px 2px 4px; position:absolute; top:-20px; left:85px; border-radius:3px; cursor:pointer; display:none; white-space:nowrap;"></span>
+			<small id="basicplanMsgId" style="position:absolute; color:#ffffff; top:-20px; left:85px; display:none; white-space:nowrap;">Trial</small>
+		</span>
+		<!--<a href="#" class="setting underline"></a>
+		<a href="#" class="notification underline"><span>5</span></a>-->
+		<a href="https://fluvid.com/my-videos" target="_blank" class="vdo underline" title="My Videos"></a>
+	</div>
+	<div id="recordingMenuOption" style="display: none;">
+		<div id="showActionMenuBtnId" style="display: block;">
+			<div id="fde_banner_msg" class="banner-msg" style="display:none;">
+			</div>
+			<div class="btn-tab">
+				<a href="javascript:void(0)" class="lft act" id="off-live-tab"> Screen Recording </a>
+				<a href="javascript:void(0)" class="rt" id="on-live-tab"> Live Streaming </a>
+			</div>
+			<div id="extention-Show-id">
+				<!-- Screeen Recording Block Start -->
+				<div class="scrn-rcd-block" id="onOff-live-setup-id">
+					<div class="recoding-type">
+						<table width="100%">
+							<tr>
+								<td width="33%" align="center" class="vcc-tab" data-id="1" id="vcc-screen-cam-btn"><a
+										href="#" class="sc-cam active"><br>Screen + Cam</a></td>
+								<td width="33%" align="center" class="vcc-tab" data-id="2" id="vcc-screen-btn"><a href="#"
+										class="sc"><br>Screen Only</a></td>
+								<td width="33%" align="center" class="vcc-tab" data-id="3" id="vcc-cam-btn"><a href="#"
+										class="cam"><br>Cam Only</a></td>
+							</tr>
+						</table>
+					</div>
+					<div class="microphone" id="vcc-camera-container">
+						<table width="100%">
+							<tr>
+								<td width="32%" align="left">
+									<p class="cm">Camera</p>
+								</td>
+								<td width="45%" align="left">
+									<select class="sel" id="vcc-camera-options">
+										<!--<option>Integrated Webcam (1bcf:2b8b)</option>-->
+									</select>
+									<p id="vcc-camera-options-error" class="not-dec" style="display: none">Not Detected</p>
+									<a href="get_access.html?p=1" target="_blank" style="display: none"
+										id="vcc-camera-options-permission" class="not-dec">Setup webcam access</a>
+								</td>
+								<td width="23%" align="left">&nbsp;</td>
+							</tr>
+						</table>
+					</div>
+	
+					<div class="microphone pdt0" id="vcc-audio-container">
+						<table width="100%">
+							<tr>
+								<td width="33%" align="left">
+									<p class="mp">Microphone</p>
+								</td>
+								<td width="45%" align="left">
+									<select class="sel" id="vcc-audio-options">
+										<!--<option>Default - Microphone</option>-->
+									</select>
+									<!-- <p class="speak" style="padding-bottom: 0px;">
+										<img src="../images/speaker-icon.png">
+										<input type="checkbox" id="systemSoundId" class="kchk2" checked><label>&nbsp;</label>&nbsp;&nbsp;System Sound
+									
+										<span class="live-modaltooltip">
+											<span class="tt-hint2">
+												Disabling system audio will mute any background audio playing in the active browser tab for the entire recording duration.
+											</span>
+											<img src="../images/info-icon1.png" class="inf">
+										</span>
+									</p> -->
+									<p id="vcc-audio-options-error" style="display: none" class="not-dec">Not Detected</p>
+									<a href="get_access.html?p=1" target="_blank" style="display: none"
+										id="vcc-audio-options-permission" class="not-dec">Setup microphone access</a>
+								</td>
+								<td width="7%" align="left">
+									<div class="loade-Top" id="showLoadAudio" style="display: none;">
+										<span style="height: 100%;">
+											<span class="progress-Top" id="progress-Top-vol"></span>
+										</span>
+									</div>
+									<div class="loade-Top" id="showLoadHide" style="display: none;">
+										<span style="height: 100%;">
+											<span class="progress-Top" id="progress-Top-vol"></span>
+										</span>
+									</div>
+								</td>
+								<td width="15%" align="right">
+									<input type="checkbox" class="swt vcc-audio-toggle" id="switch" />
+									<label class="swt" for="switch"></label>
+								</td>
+							</tr>
+							<tr style="display: none;">
+								<td colspan="4" align="center">
+									<small id="system-error-id" style="display: block; color: red; font-size: 11px;">
+										Browser audio will be muted during recording.
+									</small>
+								</td>
+							</tr>
+						</table>
+					</div>
+	
+					<div class="recording-choice">
+						<table width="100%">
+							<tr>
+								<td width="50%" align="left" id="vcc-full-desktop-btn"><a href="#" class="active">Full
+										Desktop</a>
+								</td>
+	
+								<td width="50%" align="right" id="vcc-current-tab-btn"><a href="#">Current Tab</a></td>
+							</tr>
+						</table>
+					</div>
+					<div id="system-sound-wrapper-id" style="padding: 0px 15px;">
+						<table>
+							<tr>
+								<td width="70%">
+									<p><span id="systemSountId" style="font-size: 14px;">System Sound</span> <span
+											class="live-modaltooltip">
+											<span class="tt-hint2" style="width:225px; top:-55px; left:-84px; right:unset"
+												id="systemSoundToolTipId">
+												Disabling system sound will not record any audio playing in the active
+												browser window throughout the entire recording.
+											</span>
+											<img src="../images/info-icon1.png" class="inf">
+										</span></p>
+								</td>
+								<td width="30%" align="right">
+									<input type="checkbox" class="swt" id="systemSoundId" />
+									<label for="systemSoundId" class="swt"></label>
+								</td>
+							</tr>
+						</table>
+					</div>
+	
+					<div class="advance-dv">
+						<h6 class="collapsible" id="advance-trigger">Show more options</h6>
+						<div class="advance-opt content" style="display: none;" id="advance-target">
+							<table width="100%" style="margin-bottom: 15px">
+	
+								<tr>
+									<td>
+										<p>Countdown</p>
+										<select class="sel-opt" id="countdown2">
+											<option value="3">3 Seconds</option>
+											<option value="5">5 Seconds</option>
+											<option value="10">10 Seconds</option>
+										</select>
+									</td>
+									<td align="right">
+										<span class="restriction-ext">
+											<input type="checkbox" class="swt" id="countdown1" disabled />
+											<label for="countdown1" class="swt"></label>
+											<i class="live-modaltooltip ico-lock" id="countDownPlan" style="display: none;">
+												<img src="../template/images/lock-icon.png" class="openPlanPage">
+												<span class="tt-hint2" style="top:-40px;	right:-32px;">
+													Pro feature. Upgrade to unlock.
+												</span>
+											</i>
+										</span>
+									</td>
+								</tr>
+	
+								<tr id="drawing-mouse-tools-td-id">
+									<td>
+										<p>Drawing and Mouse Tools</p>
+									</td>
+									<td align="right">
+	
+										<span class="restriction-ext">
+											<input type="checkbox" class="swt" id="drawingMouseTools" disabled />
+											<label for="drawingMouseTools" class="swt"></label>
+											<i class="live-modaltooltip ico-lock" id="drawingToolsPlan"
+												style="display: none;">
+												<img src="../template/images/lock-icon.png" class="openPlanPage">
+												<span class="tt-hint2" style="top:-40px;	right:-32px;">
+													Pro feature. Upgrade to unlock.
+												</span>
+											</i>
+										</span>
+									</td>
+								</tr>
+	
+								<tr>
+									<td>
+										<p>Recording Timer</p>
+									</td>
+									<td align="right">
+										<span class="restriction-ext">
+											<input type="checkbox" class="swt" id="recordingTimer" disabled />
+											<label for="recordingTimer" class="swt"></label>
+											<i class="live-modaltooltip ico-lock" id="recordTimerPlan"
+												style="display: none;">
+												<img src="../template/images/lock-icon.png" class="openPlanPage">
+												<span class="tt-hint2" style="top:-40px;	right:-32px;">
+													Pro feature. Upgrade to unlock.
+												</span>
+											</i>
+										</span>
+									</td>
+								</tr>
+	
+							</table>
+							<span class="reset-opt" id="resetToDefault">Reset to Default</span>
+							<span class="fl-keyboard-sht live-modaltooltip" id="keyBoardId">
+								<span class="tt-hint2">Keyboard Shortcuts</span>
+								<img src="images/keyboard-icon.png" width="23">
+							</span>
+						</div>
+					</div>
+					<!--Start recording Btn--->
+					<div class="recording-btn-dv" id="vcc-start-btn">
+						Start Recording
+					</div>
+	
+					<!-- Live Streaming Block End -->
+					<div class="url-blk" id="vcc-copy-main-id" style="padding:10px">
+						<label class="live">Your Live Streaming URL</label>
+						<table width="100%">
+							<tr>
+								<td align="left">
+									<!-- <p class="ls-inpt" id="vcc-copy-url-id"></p> -->
+									<p class="ls-inpt" id="vcc-copy-url-id">
+										<select class="sel2" id="stream-list-option">
+										</select>
+									</p>
+								</td>
+								<td width="35">
+									<span class="lnk-swt live-modaltooltip" id="vcc-copy-btn-id">
+										<span class="tt-hint2">Copy Unique URL</span>
+										<img src="images/copy-icon.png">
+									</span>
+								</td>
+							</tr>
+						</table>
+					</div>
+					<!--End Url copy-->
+	
+					<div class="ent-speed">
+						<p>
+							<span id="setInternetColor" class="dot"></span>
+							&nbsp;<span id="setInternetText" class="txt-info"> Internet is very slow</span>
+						</p>
+					</div>
+				</div>
+				<!-- Screeen Recording Block End -->
+				<!-- Screeen Recording Block End -->
+				<!-- Live Streaming Block Start -->
+				<div class="streaming-blk" id="live-setup-id">
+					<img src="images/live-gear.png">
+					<h1>A moment please!<br><small>You are few steps away from going live</small></h1>
+					<p>Choose your live streaming preferences like privacy settings, names, etc. This is a one-time process
+						and
+						should not take more than a minute to complete.</p>
+					<div class="setup-stream">
+						<a href="https://fluvid.com/video/live/setup" target="_blank">
+							Setup Live Stream
+						</a>
+					</div>
+					<p class="sml">Setup one time, Use everytime</p>
+				</div>
+			</div>
+		</div>
+		<div id="showKeyboardListId" class="fl-shortcut-blk" style="display:none;">
+			<h5><img src="images/cc-clear11.png" id="closeKeyboardList"> Keyboard Shortcuts</h5>
+			<table width="100%">
+				<tr>
+					<td width="60%">Start Recording</td>
+					<td width="5%" align="center">:</td>
+					<td width="35%" align="center"><span>Alt</span>&nbsp;&nbsp;&nbsp;+&nbsp;&nbsp;&nbsp;<span>s</span></td>
+				</tr>
+				<tr>
+					<td>Finish Recording</td>
+					<td align="center">:</td>
+					<td align="center"><span>Alt</span>&nbsp;&nbsp;&nbsp;+&nbsp;&nbsp;&nbsp;<span>w</span></td>
+				</tr>
+				<tr>
+					<td>Cancel Recording</td>
+					<td align="center">:</td>
+					<td align="center"><span>Alt</span>&nbsp;&nbsp;&nbsp;+&nbsp;&nbsp;&nbsp;<span>q</span></td>
+				</tr>
+				<!-- <tr id="shortcutBoardFluvidTool">
+					<td>Hide/Show Entire Fluvid Tool</td>
+					<td align="center">:</td>
+					<td align="center"><span>Alt</span>&nbsp;&nbsp;&nbsp;+&nbsp;&nbsp;&nbsp;<span>h</span></td>
+				</tr>
+				<tr id="shortcutBoardDrawingTool">
+					<td>Hide/Show Entire Drawing Tool</td>
+					<td align="center">:</td>
+					<td align="center"><span>Alt</span>&nbsp;&nbsp;&nbsp;+&nbsp;&nbsp;&nbsp;<span>p</span></td>
+				</tr>
+				<tr id="shortcutBoardMouseOptions">
+					<td>Hide/Show Entire Mouse Options</td>
+					<td align="center">:</td>
+					<td align="center"><span>Alt</span>&nbsp;&nbsp;&nbsp;+&nbsp;&nbsp;&nbsp;<span>m</span></td>
+				</tr> -->
+				<tr id="shortcutBoardClearPaint">
+					<td>Clear Paint</td>
+					<td align="center">:</td>
+					<td align="center"><span>Alt</span>&nbsp;&nbsp;&nbsp;+&nbsp;&nbsp;&nbsp;<span>z</span></td>
+				</tr>
+				<tr id="shortcutBoardRecordingTimer">
+					<td>Hide/Show Recording Timer</td>
+					<td align="center">:</td>
+					<td align="center"><span>Alt</span>&nbsp;&nbsp;&nbsp;+&nbsp;&nbsp;&nbsp;<span>t</span></td>
+				</tr>
+			</table>
+		</div>
+	</div>
+
+	<!-------Block Chrome doesn't allow recording Code Start----------->
+	<div class="cc-blocked-recording" id="chromeNotAllowRecordingId" style="display: none;">
+		<img src="../template/images/block-recording.png" class="cc-block-rec">
+		<h2>You can't record here!</h2>
+		<p>Chrome doesn't allow recording on this page.<br>Please try recording on a page with a valid website address.</p>
+		<span class="live-modaltooltip">
+			<span class="tt-hint2" style="width:129px; top:10px; left:-46px; right:unset">
+				Close extension window
+			</span>
+			<img src="../template/images/close-block-popup.png" class="cc-close-block-popup">
+		</span>
+	</div>
+	<!-------Block End----------->
+
+
+	<!-------Block recording is in progress Code Start----------->
+	<div class="cc-blocked-recording" id="recordingProgressId" style="display: none;">
+		<div class="cc-pulse"></div>
+		<h1 id="extensionMainTimers">0:00:00</h1>
+		<h2>Your recording is in progress...</h2>
+		<br>
+		<span class="live-modaltooltip">
+			<span class="tt-hint2" style="width:129px; top:10px; left:-46px; right:unset">
+				Close extension window
+			</span>
+			<img src="../template/images/close-block-popup.png" class="cc-close-block-popup">
+		</span>
+	</div>
+	<!-------Block End----------->
+
+	<!-------------Loader for Start-------------->
+	<div class="loader-ext-box" id="extention-loader" style="opacity : 0;">
+        <div id="fl-loading-bar-spinner" class="fl-spinner">
+            <div class="fl-spinner-icon"></div>
+        </div>
+    </div>
+	<!-------------Loader for End------------>
+
+</div>
+
+

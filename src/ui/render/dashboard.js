@@ -88,11 +88,16 @@ export async function renderDashboard(){
         const percentage = totalStudents ? ((row.count / totalStudents) * 100) : 0;
         const label = row.mqa ? `${row.name} (${row.mqa})` : row.name;
         const tr = document.createElement('tr');
-        tr.innerHTML = `
-          <td class="py-2 pr-4">${label}</td>
-          <td class="py-2 pr-4 font-semibold">${row.count}</td>
-          <td class="py-2 pr-4 text-sm text-gray-600">${percentage.toFixed(1)}%</td>
-        `;
+        const labelCell = document.createElement('td');
+        labelCell.className = 'py-2 pr-4';
+        labelCell.textContent = label;
+        const countCell = document.createElement('td');
+        countCell.className = 'py-2 pr-4 font-semibold';
+        countCell.textContent = row.count.toString();
+        const pctCell = document.createElement('td');
+        pctCell.className = 'py-2 pr-4 text-sm text-gray-600';
+        pctCell.textContent = `${percentage.toFixed(1)}%`;
+        tr.append(labelCell, countCell, pctCell);
         programBody.appendChild(tr);
       });
     }

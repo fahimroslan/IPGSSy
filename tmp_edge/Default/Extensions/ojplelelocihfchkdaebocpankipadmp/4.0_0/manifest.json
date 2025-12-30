@@ -1,0 +1,31 @@
+{
+   "action": {
+      "default_icon": "images/ScopusIcon-32.png",
+      "default_popup": "popup.html",
+      "default_title": "Scopus Document Download Manager"
+   },
+   "background": {
+      "service_worker": "js/backgroundScript.js"
+   },
+   "content_scripts": [ {
+      "js": [ "lib/pdf-locator-1.0.3.min.js", "js/contentScript.js" ],
+      "matches": [ "http://*/*", "https://*/*" ],
+      "run_at": "document_start"
+   } ],
+   "description": "Scopus authenticated users can download PDF files directly from Scopus!",
+   "homepage_url": "https://service.elsevier.com/app/answers/detail/a_id/11276/supporthub/scopus/#plugin",
+   "host_permissions": [ "*://*.scopus.com/*" ],
+   "icons": {
+      "128": "images/ScopusIcon-128.png",
+      "16": "images/ScopusIcon-16.png",
+      "32": "images/ScopusIcon-32.png",
+      "48": "images/ScopusIcon-48.png",
+      "64": "images/ScopusIcon-64.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEArLJopk0ViEH5y+a1GhI8/8tvAx95DTMZF/ue1cjCoF8MJ7mWDBDbyVQwcFqEt0P2ES4I55Ii5mMCEBQ31rLjkhAHUpj47ggZdB3X8B6lfEnQZEbvwwyfXF8JRxJNLrYEgAgQATqOamH0QHmtoBCyb2PvDj/uO9VVLhhISF9JGXwONJl2loNX1W0t46bFnk9U4f423C5C9J4AJlKH9U5WZIMa6k1SO4LiMGPJGMbviQ/5s74Ngk4J1DRCZAxTAJV27oD8WvSfuzI8avmpQkcSATPsAn7/q6MKli2ABKgUrP72ykVh7RBldb4rg9JWkfPSLEYomw2kC9Qt82cpClhD+QIDAQAB",
+   "manifest_version": 3,
+   "name": "Scopus Document Download Manager",
+   "permissions": [ "downloads" ],
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "4.00"
+}

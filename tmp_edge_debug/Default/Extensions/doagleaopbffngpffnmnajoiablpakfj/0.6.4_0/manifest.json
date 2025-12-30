@@ -1,0 +1,39 @@
+{
+   "action": {
+      "default_popup": "data/popup/index.html"
+   },
+   "background": {
+      "service_worker": "worker.js"
+   },
+   "commands": {
+      "_execute_action": {
+      },
+      "ckey_highlight": {
+         "description": "Highlight the last searched query without opening the extension's interface"
+      },
+      "remove_highlight": {
+         "description": "Remove all highlights"
+      }
+   },
+   "description": "Highlight multiple words separated by comma, space or arbitrary separator with persistent history",
+   "homepage_url": "https://webextension.org/listing/multiple-highlight.html",
+   "icons": {
+      "128": "data/icons/128.png",
+      "16": "data/icons/16.png",
+      "256": "data/icons/256.png",
+      "32": "data/icons/32.png",
+      "512": "data/icons/512.png",
+      "64": "data/icons/64.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEA33WmjgIWmv08iIi8wRZTenHwPO0O3UoczS/wooBB2FaNXpQ9zuzq5ZURvIsPadc3ouOBZiE+isB7rll/+Wskj8yIuPIttfaE1kn04/kT2WwfcGiTg7JllKTi3g5Ddp6+zm2LWHi+/3LL69w1eGpC2B1WddBJGEqWB/d86Liv9Q+vbmu6fy3BcYexLCrrLeNnlsQDorbzNY6LUw5PuPCgFsN/SkD/ZYm17bE8fG/X9Dp2X9f/Z+hHPHBib1Fe+jddft7ocAXA+MS+RsRcpz/vHYdMOwwtYns9htXXEPiepTxyimAJ9KDG0r6U6HMY1kL7n/o/s+MFbiby7nA5vhNhvwIDAQAB",
+   "manifest_version": 3,
+   "name": "Multiple Search and Highlight",
+   "offline_enabled": true,
+   "options_ui": {
+      "open_in_tab": true,
+      "page": "data/options/index.html"
+   },
+   "permissions": [ "storage", "activeTab", "scripting" ],
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "0.6.4"
+}

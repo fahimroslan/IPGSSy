@@ -1,0 +1,1 @@
+# Chrome extension to automatically admit users from outside the organization

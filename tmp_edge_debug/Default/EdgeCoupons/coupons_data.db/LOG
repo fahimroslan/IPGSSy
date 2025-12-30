@@ -1,0 +1,6 @@
+2025/11/24-12:07:00.274 530 Reusing MANIFEST C:\Users\Fahim\OneDrive\IPGSSy\tmp_edge_debug\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
+2025/11/24-12:07:00.277 530 Recovering log #4
+2025/11/24-12:07:00.281 530 Reusing old log C:\Users\Fahim\OneDrive\IPGSSy\tmp_edge_debug\Default\EdgeCoupons/coupons_data.db/000004.log 
+2025/11/24-12:07:00.454 1c54 Level-0 table #8: started
+2025/11/24-12:07:00.479 1c54 Level-0 table #8: 672680 bytes OK
+2025/11/24-12:07:00.482 1c54 Delete type=0 #4

@@ -1,0 +1,70 @@
+<html style="background-color: #fff;">
+
+<head>
+
+    <title>Fluvid</title>
+    <link rel="stylesheet" href="chrome-extension://hfadalcgppcbffdnichplalnmhjbabbm/css/style.css" type="text/css" />
+</head>
+
+<body class="pd0 mr0 fluvidfont">
+    <div class="extention-header">
+		<div class="cc-hdr-item">
+			<a href="#" class="navig" id="navigateOpenId"></a>
+			<div class="cc-hdr-dropdown" id="dropMenuId" style="display: none;">
+				<div class="cc-hdr-droparrow"></div>
+				<div class="cc-mnulist">
+					<ul class="cc-mnulnk">
+						<li><a href="https://fluvid.com/privacy" target="_blank" title="" class="first"><i
+									class="fa fa-lock"></i>&nbsp;&nbsp;&nbsp;Privacy</a></li>
+						<li><a href="https://fluvid.com/terms" target="_blank" title=""><i
+									class="fa fa-info-circle"></i>&nbsp;&nbsp;&nbsp;Terms</a></li>
+						<li>
+							<a href="javascript:void(0)" id="vcc-logout" title="Logout">
+								<i class="fa fa-sign-out"></i>&nbsp;&nbsp;&nbsp;Logout
+							</a>
+						</li>
+					</ul>
+				</div>
+			</div>
+		</div>
+		<span style="position:relative"> 
+			<img src="images/fluvid2.png" style="margin-left:5px; width:75px">
+			<span id="planNameId" style="color:#fff; font-size:10px; letter-spacing:1px; background:#f4529c; padding:0px 4px 2px 4px; position:absolute; top:-20px; left:85px; border-radius:3px; cursor:pointer; display:none; white-space:nowrap;"></span>
+			<small id="basicplanMsgId" style="position:absolute; color:#ffffff; top:-20px; left:85px; display:none; white-space:nowrap;">Trial</small>
+		</span>
+		<!--<a href="#" class="setting underline"></a>
+		<a href="#" class="notification underline"><span>5</span></a>-->
+		<a href="https://fluvid.com/my-videos" target="_blank" class="vdo underline"></a>
+	</div>
+    <div class="extention-outer">
+        <div class="fl-shortcut-blk" style="padding: 15px 10px;">
+            <div style="font-size: 15px;color: #000;letter-spacing: 0.5px; text-align: center;">
+                Recording a new video might cause your previous video to be trimmed or deleted because it's still being
+                processed.
+                <br>
+                <br>
+                Do you still wish to proceed?
+            </div>
+            <div style="padding: 35px 20px;">
+                <div class="progress-meter">
+                    <span style="width: 0%;text-align: right;" id="uploadChunkId"> 0%</span>
+                    <!-- I use my viewmodel in MVC to calculate the progress and then use @Model.progress to place it in my HTML with Razor -->
+                </div>
+            </div>
+            <div style="text-align: center;">
+                <button class="button-default button-red" id="strat_new_recording">
+                    Yes, let me start a new recording
+                </button>
+                <br>
+                <button class="button-default button-blue" id="strat_current_recording_processed" style="margin-top: 8px;">
+                    No, I'll wait until it's processed
+                </button>
+            </div>
+        </div>
+    </div>
+    <script type="text/javascript" src="../js/helper.js"></script>
+    <script type="text/javascript" src="../js/modules/event.js"></script>
+    <script type="text/javascript" src="../js/main.js"></script>
+</body>
+
+</html>

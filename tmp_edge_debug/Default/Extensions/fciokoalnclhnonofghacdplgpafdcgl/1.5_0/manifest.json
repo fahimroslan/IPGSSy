@@ -1,0 +1,29 @@
+{
+   "browser_action": {
+      "default_icon": {
+         "16": "scholar16-tb.png",
+         "32": "scholar32-tb.png"
+      },
+      "default_popup": "popup.html"
+   },
+   "content_scripts": [ {
+      "all_frames": true,
+      "css": [ "disable_promo.css" ],
+      "include_globs": [ "*/scholar_gsb_promo*" ],
+      "matches": [ "*://scholar.google.com/*" ]
+   } ],
+   "default_locale": "en",
+   "description": "__MSG_854__",
+   "icons": {
+      "128": "scholar128.png",
+      "16": "scholar16.png",
+      "48": "scholar48.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAhkl1P54ZbVry6Wr0bkTduQfHovLjaCFPpWfxt0igCdW0mmGzSDx7UVLXqzgxWKRLAsC9o6E3ofcLh4tqVkvQ9TN7wQzaWajYvNCf2XHNBQftcD9603ts0ug1EMYPU9bHGVNO4xQAQNBtmfh/8QgzzAbgjbESgxWH5eO4h0ANoQwsyHS5Xyw+uaakOTivgGAj/MdW8vcf5Ybi/Wp67xe9naRBq8/kjeuFDGhaHHx4HzUdfy8UiOCqMxuYXag6LLpM0CAKCsD59aV6Nh624F0h3Yj9HRBId1exu4kn9c0ke8ueljBLgEo7sMLT7PiQUPkaG7H8XLgQQa9ahp81yk0HGQIDAQAB",
+   "manifest_version": 2,
+   "minimum_chrome_version": "26.0",
+   "name": "__MSG_853__",
+   "permissions": [ "activeTab", "*://scholar.google.com/" ],
+   "update_url": "https://edge.microsoft.com/extensionwebstorebase/v1/crx",
+   "version": "1.5"
+}

@@ -1,0 +1,5 @@
+2025/11/24-11:41:56.070 5dac Creating DB C:\Users\Fahim\OneDrive\IPGSSy\tmp_edge\Default\EdgeCoupons/coupons_data.db since it was missing.
+2025/11/24-11:41:56.088 5dac Reusing MANIFEST C:\Users\Fahim\OneDrive\IPGSSy\tmp_edge\Default\EdgeCoupons/coupons_data.db/MANIFEST-000001
+2025/11/24-11:41:56.501 1320 Level-0 table #5: started
+2025/11/24-11:41:56.514 1320 Level-0 table #5: 672509 bytes OK
+2025/11/24-11:41:56.517 1320 Delete type=0 #3

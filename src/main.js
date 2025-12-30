@@ -25,6 +25,7 @@ import { renderPayments } from './ui/render/payments.js';
 import { renderStudents as renderStudentsView } from './ui/render/students.js';
 import { renderStudentProfile as renderStudentProfileView } from './ui/render/profile.js';
 import { renderLedger as renderLedgerView } from './ui/render/ledger.js';
+import { escapeHtml } from './utils/dom.js';
 import {
   exportStudents,
   exportPrograms,
@@ -42,10 +43,99 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
     const ACADEMIC_HOLD_STATUSES = new Set(['defer','withdraw','suspended']);
     const isSuspendedStatus = (status) => (status || '').toString().toLowerCase() === SUSPENDED_STATUS;
     const isAcademicHoldStatus = (status) => ACADEMIC_HOLD_STATUSES.has((status || '').toString().toLowerCase());
+    const safeText = (value) => escapeHtml(value ?? '');
 
     let allStudentsCache = [];
     let currentLedgerStudentId = null;
     let currentProfileStudentId = null;
+    let studentGridProgramOptions = [];
+    let studentGridFeeGroupOptions = [];
+
+    function applyStudentGridProgramOptions(target){
+      const selects = target
+        ? [target]
+        : Array.from(document.querySelectorAll('.student-grid-program'));
+      selects.forEach(select => {
+        if (!(select instanceof HTMLSelectElement)) return;
+        const previous = select.value;
+        const frag = document.createDocumentFragment();
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = studentGridProgramOptions.length ? 'Select Program' : 'No programs';
+        frag.appendChild(placeholder);
+        studentGridProgramOptions.forEach(opt => {
+          const optionEl = document.createElement('option');
+          optionEl.value = opt.value;
+          optionEl.textContent = opt.label;
+          frag.appendChild(optionEl);
+        });
+        select.innerHTML = '';
+        select.appendChild(frag);
+        if (previous && studentGridProgramOptions.some(opt => opt.value === previous)){
+          select.value = previous;
+        }
+      });
+    }
+
+    function applyStudentGridFeeGroupOptions(target){
+      const selects = target
+        ? [target]
+        : Array.from(document.querySelectorAll('.student-grid-feegroup'));
+      selects.forEach(select => {
+        if (!(select instanceof HTMLSelectElement)) return;
+        const previous = select.value;
+        const frag = document.createDocumentFragment();
+        const placeholder = document.createElement('option');
+        placeholder.value = '';
+        placeholder.textContent = studentGridFeeGroupOptions.length ? 'Select Fee Group' : 'No fee groups';
+        frag.appendChild(placeholder);
+        studentGridFeeGroupOptions.forEach(opt => {
+          const optionEl = document.createElement('option');
+          optionEl.value = opt.value;
+          optionEl.textContent = opt.label;
+          frag.appendChild(optionEl);
+        });
+        select.innerHTML = '';
+        select.appendChild(frag);
+        if (previous && studentGridFeeGroupOptions.some(opt => opt.value === previous)){
+          select.value = previous;
+        }
+      });
+    }
+
+    function updateStudentGridProgramOptionsCache(programs = []){
+      studentGridProgramOptions = programs
+        .filter(p => p && p.id !== undefined)
+        .map(p => {
+          const base = p.name || `Program #${p.id}`;
+          const label = p.mqaCode ? `${base} (${p.mqaCode})` : base;
+          return { value: String(p.id), label };
+        })
+        .sort((a, b) => a.label.localeCompare(b.label));
+      applyStudentGridProgramOptions();
+    }
+
+    function updateStudentGridFeeGroupOptionsCache(feeGroups = [], programs = []){
+      const programNameMap = new Map(
+        programs
+          .filter(p => p && p.id !== undefined)
+          .map(p => [p.id, p.name || `Program #${p.id}`])
+      );
+      studentGridFeeGroupOptions = feeGroups
+        .filter(fg => fg && fg.id !== undefined)
+        .map(fg => {
+          const programLabel = programNameMap.has(fg.programId)
+            ? ` (${programNameMap.get(fg.programId)})`
+            : '';
+          const name = fg.name || `Fee Group #${fg.id}`;
+          return {
+            value: String(fg.id),
+            label: `${formatFeeGroupCode(fg.agentId, fg.sequence)} - ${name}${programLabel}`
+          };
+        })
+        .sort((a, b) => a.label.localeCompare(b.label));
+      applyStudentGridFeeGroupOptions();
+    }
 
 
     async function populateResultCourses(studentId){
@@ -62,7 +152,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       for (const c of filtered){
         const opt = document.createElement('option');
         opt.value = c.id;
-        opt.textContent = `${c.code || ''} â€” ${c.title || ''}`.trim();
+        opt.textContent = `${c.code || ''} - ${c.title || ''}`.trim();
         rCourseSel.appendChild(opt);
       }
     }
@@ -91,6 +181,18 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
         Object.keys(panels).forEach(k => panels[k].classList.toggle('hidden', k !== tab));
         if (tab === 'dashboard'){
           renderDashboard();
+        } else if (tab === 'students'){
+          renderStudents();
+        } else if (tab === 'finance'){
+          renderAgents();
+          renderFeeGroups();
+        } else if (tab === 'ledger'){
+          renderLedgerOverview();
+          renderPayments(renderLedgerOverview);
+        } else if (tab === 'results'){
+          renderResults();
+        } else if (tab === 'programs'){
+          renderPrograms();
         }
       });
     });
@@ -128,6 +230,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
           feeProgramSel.appendChild(opt3);
         }
       }
+      updateStudentGridProgramOptionsCache(programs);
 
       // Students into results & reports selections
       const students = await db.students.toArray();
@@ -164,6 +267,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       if (profileSearchInput){
         renderProfileSearchResults(profileSearchInput.value || '');
       }
+      updateStudentGridFeeGroupOptionsCache(feeGroups, programs);
     }
 
     function getStudentSearchMatches(query){
@@ -276,11 +380,15 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
         if (currentProfileStudentId === student.id){
           tr.classList.add('bg-indigo-50');
         }
+        const safeName = safeText(student.name || '-');
+        const safeStudentId = safeText(student.studentId || '-');
+        const safeProgram = safeText(programNameForStudent(student));
+        const safeStatus = safeText(student.status || '-');
         tr.innerHTML = `
-          <td class="py-2 pr-4 ${isSuspendedStatus(student.status) ? 'text-red-600 font-semibold' : ''}">${student.name || '-'}</td>
-          <td class="py-2 pr-4">${student.studentId || '-'}</td>
-          <td class="py-2 pr-4">${programNameForStudent(student)}</td>
-          <td class="py-2 pr-4">${student.status || '-'}</td>
+          <td class="py-2 pr-4 ${isSuspendedStatus(student.status) ? 'text-red-600 font-semibold' : ''}">${safeName}</td>
+          <td class="py-2 pr-4">${safeStudentId}</td>
+          <td class="py-2 pr-4">${safeProgram}</td>
+          <td class="py-2 pr-4">${safeStatus}</td>
         `;
         rowsEl.appendChild(tr);
       });
@@ -349,6 +457,27 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       });
     }
 
+    const ledgerModal = document.getElementById('ledger-modal');
+    const ledgerModalClose = document.getElementById('ledger-modal-close');
+    const ledgerDetailContainer = document.getElementById('ledger-detail-container');
+
+    function isLedgerModalOpen(){
+      return !!ledgerModal && !ledgerModal.classList.contains('hidden');
+    }
+
+    function openLedgerModal(){
+      if (!ledgerModal || !ledgerDetailContainer) return;
+      ledgerModal.classList.remove('hidden');
+      document.body.classList.add('overflow-hidden');
+      ledgerModalClose?.focus();
+    }
+
+    function closeLedgerModal(){
+      if (!ledgerModal) return;
+      ledgerModal.classList.add('hidden');
+      document.body.classList.remove('overflow-hidden');
+    }
+
     async function setCurrentLedgerStudent(studentId, meta = {}){
       const numericId = Number(studentId);
       if (!studentId || Number.isNaN(numericId)){
@@ -358,6 +487,9 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
           updateLedgerStudentActiveLabel(null);
           await renderLedger('');
           updateLedgerOverviewSelectionStyles();
+          if (isLedgerModalOpen()){
+            closeLedgerModal();
+          }
         }
         return;
       }
@@ -368,6 +500,9 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       }
       if (currentLedgerStudentId === numericId){
         updateLedgerStudentActiveLabel(match);
+        if (!isLedgerModalOpen()){
+          openLedgerModal();
+        }
         return;
       }
       currentLedgerStudentId = numericId;
@@ -375,6 +510,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       updateLedgerStudentActiveLabel(match);
       await renderLedger(numericId);
       updateLedgerOverviewSelectionStyles();
+      openLedgerModal();
     }
 
     const resultStudentSelect = document.getElementById('result-student');
@@ -393,7 +529,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
         for (const a of activeAgents){
           const opt = document.createElement('option');
           opt.value = a.id;
-          opt.textContent = `${formatAgentCode(a.id)} â€” ${a.name || 'Unnamed'} (${getAgentTypeLabel(a.type)})`;
+          opt.textContent = `${formatAgentCode(a.id)} - ${a.name || 'Unnamed'} (${getAgentTypeLabel(a.type)})`;
           feeAgentSel.appendChild(opt);
         }
       }
@@ -441,7 +577,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
           const opt = document.createElement('option');
           opt.value = fg.id;
           const programLabel = pmap[fg.programId] ? ` (${pmap[fg.programId]})` : '';
-          opt.textContent = `${formatFeeGroupCode(fg.agentId, fg.sequence)} â€” ${fg.name}${programLabel}`;
+          opt.textContent = `${formatFeeGroupCode(fg.agentId, fg.sequence)} - ${fg.name}${programLabel}`;
           paymentFeeSel.appendChild(opt);
         }
       }
@@ -451,7 +587,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
           const opt = document.createElement('option');
           opt.value = fg.id;
           const pname = pmap[fg.programId] ? ` (${pmap[fg.programId]})` : '';
-          opt.textContent = `${formatFeeGroupCode(fg.agentId, fg.sequence)} â€” ${fg.name}${pname}`;
+          opt.textContent = `${formatFeeGroupCode(fg.agentId, fg.sequence)} - ${fg.name}${pname}`;
           stuFeeSel.appendChild(opt);
         }
       }
@@ -478,15 +614,21 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       };
       items.forEach((p, i) => {
         const tr = document.createElement('tr');
+        const safeName = safeText(p.name || '');
+        const safeMqa = safeText(p.mqaCode || '-');
+        const safeLevel = safeText(p.level || '-');
+        const safeMode = safeText(p.mode || '');
+        const safeProjectType = safeText(p.projectType || '-');
+        const safeDuration = safeText(formatDuration(p.duration));
         tr.innerHTML = `
           <td class="py-2 pr-4">${i+1}</td>
-          <td class="py-2 pr-4">${p.name || ''}</td>
-          <td class="py-2 pr-4 font-mono text-sm">${p.mqaCode || '-'}</td>
-          <td class="py-2 pr-4">${p.level || '-'}</td>
-          <td class="py-2 pr-4">${p.mode || ''}</td>
+          <td class="py-2 pr-4">${safeName}</td>
+          <td class="py-2 pr-4 font-mono text-sm">${safeMqa}</td>
+          <td class="py-2 pr-4">${safeLevel}</td>
+          <td class="py-2 pr-4">${safeMode}</td>
           <td class="py-2 pr-4">${courseCount[p.id] || 0}</td>
-          <td class="py-2 pr-4">${p.projectType || '-'}</td>
-          <td class="py-2 pr-4">${formatDuration(p.duration)}</td>
+          <td class="py-2 pr-4">${safeProjectType}</td>
+          <td class="py-2 pr-4">${safeDuration}</td>
           <td class="py-2 pr-4">
             <button class="text-blue-600 underline" data-action="edit-program" data-id="${p.id}">Edit</button>
             <button class="text-red-600 underline ml-2" data-action="delete-program" data-id="${p.id}">Delete</button>
@@ -497,9 +639,10 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
         const detailTr = document.createElement('tr');
         detailTr.classList.add('hidden');
         detailTr.dataset.detailFor = p.id;
+        const safeDetailName = safeText(p.name || '');
         detailTr.innerHTML = `
           <td colspan="9" class="bg-gray-50 px-4 py-3">
-            <div class="text-sm text-gray-600 mb-2">Courses for ${p.name || ''}</div>
+            <div class="text-sm text-gray-600 mb-2">Courses for ${safeDetailName}</div>
             <div data-courses-list="${p.id}" class="text-sm text-gray-700">No courses loaded.</div>
           </td>
         `;
@@ -536,12 +679,16 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       const pmap = Object.fromEntries(programs.map(p => [p.id, p.name]));
       items.forEach((c, i) => {
         const tr = document.createElement('tr');
+        const safeCode = safeText(c.code || '');
+        const safeTitle = safeText(c.title || '');
+        const safeCredit = safeText(c.credit - '');
+        const safeProgram = safeText(pmap[c.programId] || '-');
         tr.innerHTML = `
           <td class="py-2 pr-4">${i+1}</td>
-          <td class="py-2 pr-4">${c.code || ''}</td>
-          <td class="py-2 pr-4">${c.title || ''}</td>
-          <td class="py-2 pr-4">${c.credit ?? ''}</td>
-          <td class="py-2 pr-4">${pmap[c.programId] || '-'}</td>
+          <td class="py-2 pr-4">${safeCode}</td>
+          <td class="py-2 pr-4">${safeTitle}</td>
+          <td class="py-2 pr-4">${safeCredit}</td>
+          <td class="py-2 pr-4">${safeProgram}</td>
           <td class="py-2 pr-4">
             <button class="text-blue-600 underline" data-action="edit-course" data-id="${c.id}">Edit</button>
             <button class="text-red-600 underline ml-2" data-action="delete-course" data-id="${c.id}">Delete</button>
@@ -561,22 +708,30 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
         db.students.toArray(), db.courses.toArray()
       ]);
       const smap = Object.fromEntries(students.map(s => [s.id, s.name]));
-      const cmap = Object.fromEntries(courses.map(c => [c.id, `${c.code} â€” ${c.title}`]));
+      const cmap = Object.fromEntries(courses.map(c => [c.id, `${c.code} - ${c.title}`]));
       const crmap = Object.fromEntries(courses.map(c => [c.id, c.credit]));
 
       // FIX: use orderBy('id').reverse() instead of table.reverse()
       const items = await db.results.orderBy('id').reverse().toArray();
       items.forEach((r, i) => {
         const tr = document.createElement('tr');
+        const safeStudent = safeText(smap[r.studentIdFk] || '-');
+        const safeCourse = safeText(cmap[r.courseIdFk] || '-');
+        const safeCredit = safeText(crmap[r.courseIdFk] ?? '-');
+        const safeSemester = safeText(r.semester || '-');
+        const safeMark = safeText(r.mark ?? '-');
+        const safeGrade = safeText(r.grade || '-');
+        const pointValue = Number(r.point);
+        const safePoint = Number.isFinite(pointValue) ? pointValue.toFixed(2) : safeText(r.point ?? '-');
         tr.innerHTML = `
           <td class="py-2 pr-4">${i+1}</td>
-          <td class="py-2 pr-4">${smap[r.studentIdFk] || '-'}</td>
-          <td class="py-2 pr-4">${cmap[r.courseIdFk] || '-'}</td>
-          <td class="py-2 pr-4">${crmap[r.courseIdFk] ?? '-'}</td>
-          <td class="py-2 pr-4">${r.semester || '-'}</td>
-          <td class="py-2 pr-4">${r.mark ?? '-'}</td>
-          <td class="py-2 pr-4">${r.grade || '-'}</td>
-          <td class="py-2 pr-4">${(r.point ?? 0).toFixed?.(2) ?? r.point}</td>
+          <td class="py-2 pr-4">${safeStudent}</td>
+          <td class="py-2 pr-4">${safeCourse}</td>
+          <td class="py-2 pr-4">${safeCredit}</td>
+          <td class="py-2 pr-4">${safeSemester}</td>
+          <td class="py-2 pr-4">${safeMark}</td>
+          <td class="py-2 pr-4">${safeGrade}</td>
+          <td class="py-2 pr-4">${safePoint}</td>
         `;
         tbody.appendChild(tr);
       });
@@ -596,23 +751,27 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
           : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-700">External Agent</span>';
         const rawLink = (a.agreementLink || '').trim();
         const prefixedLink = rawLink && !/^https?:\/\//i.test(rawLink) ? `https://${rawLink}` : rawLink;
-        const safeLink = prefixedLink ? prefixedLink.replace(/"/g, '&quot;') : '';
+        const safeLink = prefixedLink && /^https?:\/\//i.test(prefixedLink) ? safeText(prefixedLink) : '';
         const linkCell = safeLink
           ? `<a href="${safeLink}" target="_blank" rel="noopener" class="text-blue-600 underline break-all">Open</a>`
           : '-';
         const statusBadge = isTerminated
           ? '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-red-100 text-red-700">Terminated</span>'
           : '<span class="inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium bg-emerald-100 text-emerald-700">Active</span>';
+        const safeName = safeText(a.name || '');
+        const safeEmail = safeText(a.email || '');
+        const safePhone = safeText(a.phone || '');
+        const safeAgreement = safeText(a.agreement || '');
         const tr = document.createElement('tr');
         tr.className = isTerminated ? 'text-gray-500' : '';
         tr.innerHTML = `
           <td class="py-2 pr-4 font-mono">${formatAgentCode(a.id)}</td>
-          <td class="py-2 pr-4">${a.name || ''}</td>
+          <td class="py-2 pr-4">${safeName}</td>
           <td class="py-2 pr-4">${typeBadge}</td>
-          <td class="py-2 pr-4">${a.email || ''}</td>
-          <td class="py-2 pr-4">${a.phone || ''}</td>
+          <td class="py-2 pr-4">${safeEmail}</td>
+          <td class="py-2 pr-4">${safePhone}</td>
           <td class="py-2 pr-4">${linkCell}</td>
-          <td class="py-2 pr-4">${a.agreement || ''}</td>
+          <td class="py-2 pr-4">${safeAgreement}</td>
           <td class="py-2 pr-4">${statusBadge}</td>
           <td class="py-2 pr-4 whitespace-nowrap">
             <button class="text-blue-600 underline" data-action="edit-agent" data-id="${a.id}">Edit</button>
@@ -640,13 +799,19 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
         const conv = Number(fg.convocationFee) || 0;
         const total = reg + tui + conv;
         const indexCode = formatFeeGroupCode(fg.agentId, fg.sequence);
+        const safeName = safeText(fg.name || '');
+        const safeProgram = safeText(pmap[fg.programId] || '-');
+        const agentLabel = amap[fg.agentId]
+          ? `${amap[fg.agentId].name || '-'} (${getAgentTypeLabel(amap[fg.agentId].type)})`
+          : '-';
+        const safeAgent = safeText(agentLabel);
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="py-2 pr-4">${i+1}</td>
-          <td class="py-2 pr-4">${fg.name || ''}</td>
+          <td class="py-2 pr-4">${safeName}</td>
           <td class="py-2 pr-4 font-mono text-sm">${indexCode}</td>
-            <td class="py-2 pr-4">${pmap[fg.programId] || '-'}</td>
-            <td class="py-2 pr-4">${amap[fg.agentId] ? `${amap[fg.agentId].name || '-'} (${getAgentTypeLabel(amap[fg.agentId].type)})` : '-'}</td>
+            <td class="py-2 pr-4">${safeProgram}</td>
+            <td class="py-2 pr-4">${safeAgent}</td>
           <td class="py-2 pr-4">${reg.toFixed(2)}</td>
           <td class="py-2 pr-4">${tui.toFixed(2)}</td>
           <td class="py-2 pr-4">${conv.toFixed(2)}</td>
@@ -691,7 +856,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
           const opt = document.createElement('option');
           opt.value = fg.id;
           const programLabel = pmap[fg.programId] ? ` (${pmap[fg.programId]})` : '';
-          opt.textContent = `${formatFeeGroupCode(fg.agentId, fg.sequence)} â€” ${fg.name || ''}${programLabel}`;
+          opt.textContent = `${formatFeeGroupCode(fg.agentId, fg.sequence)} - ${fg.name || ''}${programLabel}`;
           select.appendChild(opt);
         });
     }
@@ -779,7 +944,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       const agentOptions = agents
         .map(a => ({
           value: String(a.id),
-          label: `${formatAgentCode(a.id)} — ${a.name || `Agent #${a.id}`} (${getAgentTypeLabel(a.type)})`
+          label: `${formatAgentCode(a.id)} - ${a.name || `Agent #${a.id}`} (${getAgentTypeLabel(a.type)})`
         }))
         .sort((a,b)=>a.label.localeCompare(b.label));
 
@@ -880,19 +1045,27 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
               ? 'bg-amber-50 hover:bg-amber-100 text-amber-800'
               : 'hover:bg-gray-50'
         }`;
+        const safeStudentName = safeText(row.student.name || '-');
+        const safeStudentId = safeText(row.student.studentId || '-');
+        const safeProgram = safeText(
+          row.student.programId ? (programMap.get(row.student.programId)?.name || '-') : '-'
+        );
+        const agentLabel = row.agent ? `${row.agent.name || '-'} (${formatAgentCode(row.agent.id)})` : '-';
+        const safeAgent = safeText(agentLabel);
+        const safeStatus = safeText(row.status);
         tr.innerHTML = `
           <td class="py-2 pr-4">${row.index}</td>
-          <td class="py-2 pr-4 ${suspended ? 'text-red-600 font-semibold' : ''}">${row.student.name || '-'}</td>
-          <td class="py-2 pr-4">${row.student.studentId || '-'}</td>
-          <td class="py-2 pr-4">${row.student.programId ? (programMap.get(row.student.programId)?.name || '-') : '-'}</td>
-          <td class="py-2 pr-4">${row.agent ? `${row.agent.name || '-'} (${formatAgentCode(row.agent.id)})` : '-'}</td>
+          <td class="py-2 pr-4 ${suspended ? 'text-red-600 font-semibold' : ''}">${safeStudentName}</td>
+          <td class="py-2 pr-4">${safeStudentId}</td>
+          <td class="py-2 pr-4">${safeProgram}</td>
+          <td class="py-2 pr-4">${safeAgent}</td>
           <td class="py-2 pr-4">${row.invoiceCount}</td>
           <td class="py-2 pr-4">${formatMoney(row.billed)}</td>
           <td class="py-2 pr-4">${formatMoney(row.collected)}</td>
           <td class="py-2 pr-4 text-emerald-600">${row.discounts ? formatMoney(row.discounts) : '-'}</td>
           <td class="py-2 pr-4">${formatMoney(row.pending)}</td>
           <td class="py-2 pr-4">${formatMoney(row.overdue)}</td>
-          <td class="py-2 pr-4 text-sm text-gray-700">${row.status}</td>
+          <td class="py-2 pr-4 text-sm text-gray-700">${safeStatus}</td>
         `;
         tableBody.appendChild(tr);
       });
@@ -1281,11 +1454,14 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       tbody.innerHTML = '';
       programCourseDrafts.forEach((c, idx) => {
         const tr = document.createElement('tr');
+        const safeCode = safeText(c.code || '');
+        const safeTitle = safeText(c.title || '');
+        const safeCredit = safeText(c.credit - '');
         tr.innerHTML = `
           <td class="py-2 px-2">${idx + 1}</td>
-          <td class="py-2 px-2">${c.code || ''}</td>
-          <td class="py-2 px-2">${c.title || ''}</td>
-          <td class="py-2 px-2">${c.credit ?? ''}</td>
+          <td class="py-2 px-2">${safeCode}</td>
+          <td class="py-2 px-2">${safeTitle}</td>
+          <td class="py-2 px-2">${safeCredit}</td>
           <td class="py-2 px-2">
             <button type="button" class="text-blue-600 underline text-xs" data-action="edit-draft-course" data-key="${c.key}">Edit</button>
             <button type="button" class="text-red-600 underline text-xs ml-2" data-action="delete-draft-course" data-key="${c.key}">Delete</button>
@@ -1309,7 +1485,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
         id: c.id,
         code: c.code || '',
         title: c.title || '',
-        credit: c.credit ?? ''
+        credit: c.credit - ''
       }));
       programCourseDraftEditingKey = null;
       resetProgramCourseDraftForm();
@@ -1420,7 +1596,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
 
     async function renderProgramCourseList(container, programId){
       if (!container) return;
-      container.textContent = 'Loading coursesâ€¦';
+      container.textContent = 'Loading courses...';
       const courses = await db.courses.where('programId').equals(programId).toArray();
       if (!courses.length){
         container.textContent = 'No courses registered for this program.';
@@ -1444,11 +1620,14 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       const tbody = table.querySelector('tbody');
       courses.forEach((c, idx) => {
         const tr = document.createElement('tr');
+        const safeCode = safeText(c.code || '');
+        const safeTitle = safeText(c.title || '');
+        const safeCredit = safeText(c.credit - '');
         tr.innerHTML = `
           <td class="py-1 px-2 border-b">${idx + 1}</td>
-          <td class="py-1 px-2 border-b">${c.code || ''}</td>
-          <td class="py-1 px-2 border-b">${c.title || ''}</td>
-          <td class="py-1 px-2 border-b">${c.credit ?? ''}</td>
+          <td class="py-1 px-2 border-b">${safeCode}</td>
+          <td class="py-1 px-2 border-b">${safeTitle}</td>
+          <td class="py-1 px-2 border-b">${safeCredit}</td>
         `;
         tbody.appendChild(tr);
       });
@@ -1457,64 +1636,58 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       container.appendChild(wrapper);
     }
 
-    document.getElementById('form-program').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      const data = Object.fromEntries(fd.entries());
-      const mqaCode = (data.mqaCode || '').toString().trim().toUpperCase();
-      if (!mqaCode) return alert('MQA approval number is required.');
-      const duplicate = await db.programs.where('mqaCode').equals(mqaCode).first();
-      if (duplicate && duplicate.id !== editingProgramId){
-        return alert('This MQA approval number is already registered to another program.');
-      }
-      const durationYears = data.duration ? Number(data.duration) : null;
-      const projectType = normalizeProjectType(data.projectType) || PROJECT_OPTIONS[0];
-      const level = (data.level || '').toString().trim() || 'Master';
-      const payload = {
-        name: data.name?.trim(),
-        mqaCode,
-        level,
-        mode: data.mode?.trim(),
-        projectType,
-        duration: Number.isFinite(durationYears) ? durationYears : null
-      };
-      if (editingProgramId){
-        await db.programs.update(editingProgramId, payload);
-        await persistProgramCourses(editingProgramId);
-        editingProgramId = null;
-        setProgramFormMode(false);
-        alert('Program updated.');
-      } else {
-        const newId = await db.programs.add(payload);
-        await persistProgramCourses(newId);
-        alert('Program saved.');
-      }
-      e.target.reset();
-      resetProgramCourseDrafts();
-      await renderPrograms();
-      await renderCourses();
-      const selectedStudent = document.getElementById('result-student')?.value || '';
-      await populateResultCourses(selectedStudent);
-    });
-
-    let editingStudentId = null;
-    const studentSubmitBtn = document.getElementById('student-submit');
-    const studentCancelBtn = document.getElementById('student-cancel-edit');
-    const studentEditingLabel = document.getElementById('student-editing-label');
-
-    function setStudentFormMode(editing){
-      if (!studentSubmitBtn || !studentCancelBtn || !studentEditingLabel) return;
-      if (editing){
-        studentSubmitBtn.textContent = 'Update Student';
-        studentCancelBtn.classList.remove('hidden');
-        studentEditingLabel.classList.remove('hidden');
-      } else {
-        studentSubmitBtn.textContent = 'Save Student';
-        studentCancelBtn.classList.add('hidden');
-        studentEditingLabel.classList.add('hidden');
-      }
+    const programFormEl = document.getElementById('form-program');
+    if (programFormEl){
+      programFormEl.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const data = Object.fromEntries(fd.entries());
+        const mqaCode = (data.mqaCode || '').toString().trim().toUpperCase();
+        if (!mqaCode) return alert('MQA approval number is required.');
+        const duplicate = await db.programs.where('mqaCode').equals(mqaCode).first();
+        if (duplicate && duplicate.id !== editingProgramId){
+          return alert('This MQA approval number is already registered to another program.');
+        }
+        const durationYears = data.duration ? Number(data.duration) : null;
+        const projectType = normalizeProjectType(data.projectType) || PROJECT_OPTIONS[0];
+        const level = (data.level || '').toString().trim() || 'Master';
+        const payload = {
+          name: data.name?.trim(),
+          mqaCode,
+          level,
+          mode: data.mode?.trim(),
+          projectType,
+          duration: Number.isFinite(durationYears) ? durationYears : null
+        };
+        if (editingProgramId){
+          await db.programs.update(editingProgramId, payload);
+          await persistProgramCourses(editingProgramId);
+          editingProgramId = null;
+          setProgramFormMode(false);
+          alert('Program updated.');
+        } else {
+          const newId = await db.programs.add(payload);
+          await persistProgramCourses(newId);
+          alert('Program saved.');
+        }
+        e.target.reset();
+        resetProgramCourseDrafts();
+        await renderPrograms();
+        await renderCourses();
+        const selectedStudent = document.getElementById('result-student')?.value || '';
+        await populateResultCourses(selectedStudent);
+      });
     }
-    setStudentFormMode(false);
+
+    async function createStudentRecord(payload){
+      const newId = await db.students.add(payload);
+      if (payload.feeGroupId){
+        await ensureInvoicesForFeeGroup(newId, payload.feeGroupId);
+        await adjustInvoicesForRegistrationDate(newId, payload.registrationDate);
+      }
+      await syncStudentCourses(newId, payload.programId);
+      return newId;
+    }
 
     let editingLedgerPaymentId = null;
     let selectedLedgerInvoiceId = null;
@@ -1560,65 +1733,437 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       });
     }
 
-    const studentFormEl = document.getElementById('form-student');
-    if (studentFormEl){
-      studentFormEl.addEventListener('submit', async (e) => {
-        e.preventDefault();
-        const fd = new FormData(e.target);
-        const data = Object.fromEntries(fd.entries());
-        if (!data.name) return alert('Name is required');
-        const normalizedReg = sanitizeRegistrationDate(data.registrationDate);
-        const existingStudent = editingStudentId ? await db.students.get(editingStudentId) : null;
-        const payload = {
-          studentId: data.studentId?.trim() || undefined,
-          name: data.name.trim(),
-          email: data.email?.trim(),
-          phone: data.phone?.trim(),
-          registrationDate: normalizedReg,
-          intake: data.intake?.trim(),
-          programId: data.programId ? Number(data.programId) : null,
-          feeGroupId: data.feeGroupId ? Number(data.feeGroupId) : null,
-          paymentPlan: data.paymentPlan || 'lump',
-          status: data.status || 'Active'
-        };
-        if (editingStudentId){
-          await db.students.update(editingStudentId, payload);
-          if (payload.feeGroupId){
-            await ensureInvoicesForFeeGroup(editingStudentId, payload.feeGroupId);
-          }
-          if (existingStudent && existingStudent.registrationDate !== normalizedReg){
-            await adjustInvoicesForRegistrationDate(editingStudentId, normalizedReg);
-          }
-          await syncStudentCourses(editingStudentId, payload.programId);
-          alert('Student updated.');
-        } else {
-          const newId = await db.students.add(payload);
-          if (payload.feeGroupId){
-            await ensureInvoicesForFeeGroup(newId, payload.feeGroupId);
-            await adjustInvoicesForRegistrationDate(newId, normalizedReg);
-          }
-          await syncStudentCourses(newId, payload.programId);
-          alert('Student saved.');
+    // ---------------------- Bulk student entry ----------------------
+    const BULK_DEFAULT_ROW_COUNT = 1;
+    const bulkStudentElements = {
+      panel: document.getElementById('bulk-student-panel'),
+      rows: document.getElementById('bulk-student-rows'),
+      addOne: document.getElementById('bulk-add-one'),
+      addFive: document.getElementById('bulk-add-five'),
+      clear: document.getElementById('bulk-clear'),
+      save: document.getElementById('bulk-save'),
+      status: document.getElementById('bulk-status-message'),
+      rowCount: document.getElementById('bulk-row-count'),
+      emptyHint: document.getElementById('bulk-empty-hint')
+    };
+    let bulkStudentRowSeq = 0;
+    let bulkStudentSaving = false;
+
+    function bulkHasRows(){
+      return !!(bulkStudentElements.rows && bulkStudentElements.rows.querySelector('tr[data-row-id]'));
+    }
+
+    function updateBulkRowMetrics(){
+      if (!bulkStudentElements.rows) return;
+      const count = bulkStudentElements.rows.querySelectorAll('tr[data-row-id]').length;
+      if (bulkStudentElements.rowCount){
+        bulkStudentElements.rowCount.textContent = `${count} row${count === 1 ? '' : 's'}`;
+      }
+      if (bulkStudentElements.emptyHint){
+        bulkStudentElements.emptyHint.classList.toggle('hidden', count > 0);
+      }
+    }
+
+    function setBulkStatus(message, tone = 'muted'){
+      if (!bulkStudentElements.status) return;
+      const palette = {
+        muted: 'text-gray-500',
+        success: 'text-emerald-600',
+        error: 'text-red-600'
+      };
+      bulkStudentElements.status.className = `text-sm ${palette[tone] || palette.muted}`;
+      bulkStudentElements.status.textContent = message;
+    }
+
+    function setBulkSavingState(isSaving){
+      bulkStudentSaving = isSaving;
+      if (bulkStudentElements.save){
+        bulkStudentElements.save.disabled = isSaving;
+        bulkStudentElements.save.textContent = isSaving ? 'Saving...' : 'Save Rows';
+      }
+      [bulkStudentElements.addOne, bulkStudentElements.addFive, bulkStudentElements.clear].forEach(btn => {
+        if (btn){
+          btn.disabled = isSaving;
         }
-        editingStudentId = null;
-        setStudentFormMode(false);
-        e.target.reset();
-        ensureStudentRegistrationDefault();
+      });
+    }
+
+    function renumberBulkRows(){
+      if (!bulkStudentElements.rows) return;
+      const indices = bulkStudentElements.rows.querySelectorAll('.bulk-row-index');
+      indices.forEach((el, idx) => {
+        el.textContent = idx + 1;
+      });
+      updateBulkRowMetrics();
+    }
+
+    function getBulkDetailRow(row){
+      if (!row || !bulkStudentElements.rows) return null;
+      const rowId = row.dataset.rowId;
+      if (!rowId) return null;
+      return bulkStudentElements.rows.querySelector(`tr[data-row-detail-for="${rowId}"]`);
+    }
+
+    function getBulkMainRowFromElement(target){
+      if (!target || !bulkStudentElements.rows) return null;
+      const mainRow = target.closest('tr[data-row-id]');
+      if (mainRow) return mainRow;
+      const detailRow = target.closest('tr[data-row-detail-for]');
+      if (!detailRow) return null;
+      const rowId = detailRow.dataset.rowDetailFor;
+      if (!rowId) return null;
+      return bulkStudentElements.rows.querySelector(`tr[data-row-id="${rowId}"]`);
+    }
+
+    function getBulkFieldElement(row, field){
+      if (!row) return null;
+      const direct = row.querySelector(`[data-field="${field}"]`);
+      if (direct) return direct;
+      const detailRow = getBulkDetailRow(row);
+      return detailRow ? detailRow.querySelector(`[data-field="${field}"]`) : null;
+    }
+
+    function readBulkField(row, field){
+      const el = getBulkFieldElement(row, field);
+      return el ? el.value || '' : '';
+    }
+
+    function collectBulkPayload(row){
+      const toNullable = (value) => {
+        const trimmed = (value || '').toString().trim();
+        return trimmed ? trimmed : undefined;
+      };
+      const toNumberOrNull = (value) => {
+        const trimmed = (value || '').toString().trim();
+        if (!trimmed) return null;
+        const num = Number(trimmed);
+        return Number.isFinite(num) ? num : null;
+      };
+      const normalizedReg = sanitizeRegistrationDate(readBulkField(row, 'registrationDate'));
+      return {
+        studentId: toNullable(readBulkField(row, 'studentId')),
+        name: readBulkField(row, 'name').trim(),
+        email: toNullable(readBulkField(row, 'email')),
+        phone: toNullable(readBulkField(row, 'phone')),
+        registrationDate: normalizedReg,
+        intake: toNullable(readBulkField(row, 'intake')),
+        programId: toNumberOrNull(readBulkField(row, 'programId')),
+        feeGroupId: toNumberOrNull(readBulkField(row, 'feeGroupId')),
+        paymentPlan: readBulkField(row, 'paymentPlan') || 'lump',
+        status: 'Active'
+      };
+    }
+
+    function markBulkRow(row, state = 'idle', message = ''){
+      if (!row) return;
+      const detailRow = getBulkDetailRow(row);
+      row.dataset.state = state;
+      row.classList.remove('bg-red-50','bg-emerald-50');
+      const statusEl = row.querySelector('[data-row-status]');
+      const detailStatusEl = detailRow ? detailRow.querySelector('[data-row-status]') : null;
+      if (statusEl){
+        statusEl.textContent = message;
+        statusEl.classList.remove('text-red-600','text-emerald-600');
+      }
+      if (detailStatusEl){
+        detailStatusEl.textContent = message;
+        detailStatusEl.classList.remove('text-red-600','text-emerald-600');
+      }
+      if (state === 'error'){
+        row.classList.add('bg-red-50');
+        statusEl?.classList.add('text-red-600');
+        detailRow?.classList.add('bg-red-50');
+        detailStatusEl?.classList.add('text-red-600');
+      } else if (state === 'success'){
+        row.classList.add('bg-emerald-50');
+        statusEl?.classList.add('text-emerald-600');
+        detailRow?.classList.add('bg-emerald-50');
+        detailStatusEl?.classList.add('text-emerald-600');
+      } else {
+        detailRow?.classList.remove('bg-red-50','bg-emerald-50');
+      }
+      row.querySelectorAll('input, select').forEach(ctrl => {
+        ctrl.classList.remove('ring-1','ring-red-400','ring-red-300');
+      });
+      detailRow?.querySelectorAll('input, select').forEach(ctrl => {
+        ctrl.classList.remove('ring-1','ring-red-400','ring-red-300');
+      });
+    }
+
+    function createBulkRow(prefill = {}){
+      if (!bulkStudentElements.rows) return null;
+      bulkStudentRowSeq += 1;
+      const rowNumber = bulkStudentElements.rows.querySelectorAll('tr[data-row-id]').length + 1;
+      const rowId = String(bulkStudentRowSeq);
+      const tr = document.createElement('tr');
+      tr.dataset.rowId = rowId;
+      tr.className = 'align-top border-b border-gray-100 bg-white transition';
+      tr.innerHTML = `
+        <td class="p-2 text-xs text-gray-400 align-top">
+          <span class="bulk-row-index">${rowNumber}</span>
+        </td>
+        <td class="p-2 align-top">
+          <input type="text" class="student-grid-input border border-gray-200 rounded px-2 py-1 w-full font-medium focus:border-blue-500 focus:ring-1 focus:ring-blue-200" data-field="name" placeholder="Full name" />
+        </td>
+        <td class="p-2 align-top">
+          <input type="text" class="student-grid-input border border-gray-200 rounded px-2 py-1 w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-200" data-field="studentId" placeholder="Optional" />
+        </td>
+        <td class="p-2 align-top">
+          <select class="student-grid-select student-grid-program border border-gray-200 rounded px-2 py-1 w-full bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-200" data-field="programId"></select>
+        </td>
+        <td class="p-2 align-top w-32">
+          <div class="flex flex-col gap-1">
+            <button type="button" class="text-xs text-blue-600 hover:text-blue-800" data-action="bulk-toggle-row">Details</button>
+            <button type="button" class="text-xs text-red-600 hover:text-red-800" data-action="bulk-remove-row">Remove</button>
+          </div>
+        </td>
+      `;
+      const detailTr = document.createElement('tr');
+      detailTr.dataset.rowDetailFor = rowId;
+      detailTr.className = 'hidden bg-gray-50 border-b border-gray-100';
+      detailTr.innerHTML = `
+        <td colspan="5" class="p-3">
+          <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-3 text-sm">
+            <label class="flex flex-col gap-1">
+              <span class="text-xs text-gray-500">Email</span>
+              <input type="email" class="student-grid-input border border-gray-200 rounded px-2 py-1 w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-200" data-field="email" placeholder="Email" />
+            </label>
+            <label class="flex flex-col gap-1">
+              <span class="text-xs text-gray-500">Phone</span>
+              <input type="text" class="student-grid-input border border-gray-200 rounded px-2 py-1 w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-200" data-field="phone" placeholder="Phone" />
+            </label>
+            <label class="flex flex-col gap-1">
+              <span class="text-xs text-gray-500">Registration Date</span>
+              <input type="date" class="student-grid-input border border-gray-200 rounded px-2 py-1 w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-200" data-field="registrationDate" />
+            </label>
+            <label class="flex flex-col gap-1">
+              <span class="text-xs text-gray-500">Semester</span>
+              <input type="text" class="student-grid-input border border-gray-200 rounded px-2 py-1 w-full focus:border-blue-500 focus:ring-1 focus:ring-blue-200" data-field="intake" placeholder="2025-02" />
+            </label>
+            <label class="flex flex-col gap-1">
+              <span class="text-xs text-gray-500">Fee Group</span>
+              <select class="student-grid-select student-grid-feegroup border border-gray-200 rounded px-2 py-1 w-full bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-200" data-field="feeGroupId"></select>
+            </label>
+            <label class="flex flex-col gap-1">
+              <span class="text-xs text-gray-500">Payment Plan</span>
+              <select class="student-grid-select border border-gray-200 rounded px-2 py-1 w-full bg-white focus:border-blue-500 focus:ring-1 focus:ring-blue-200" data-field="paymentPlan">
+                <option value="lump">Lump Sum</option>
+                <option value="installment6">6-Month</option>
+                <option value="installment12">12-Month</option>
+              </select>
+            </label>
+          </div>
+          <div class="mt-2 text-[11px] text-gray-400" data-row-status=""></div>
+        </td>
+      `;
+      bulkStudentElements.rows.appendChild(tr);
+      bulkStudentElements.rows.appendChild(detailTr);
+      const defaults = {
+        registrationDate: prefill.registrationDate || getTodayIso(),
+        paymentPlan: prefill.paymentPlan || 'lump'
+      };
+      const inputs = [tr, detailTr];
+      inputs.forEach(container => {
+        container.querySelectorAll('input[data-field]').forEach(input => {
+          const key = input.dataset.field;
+          if (key && prefill[key]){
+            input.value = prefill[key];
+          }
+        });
+      });
+      const regInput = detailTr.querySelector('[data-field="registrationDate"]');
+      if (regInput){
+        regInput.value = defaults.registrationDate;
+      }
+      applyStudentGridProgramOptions(tr.querySelector('.student-grid-program'));
+      applyStudentGridFeeGroupOptions(detailTr.querySelector('.student-grid-feegroup'));
+      if (prefill.programId){
+        const programSelect = tr.querySelector('.student-grid-program');
+        if (programSelect){
+          programSelect.value = String(prefill.programId);
+        }
+      }
+      if (prefill.feeGroupId){
+        const feeGroupSelect = detailTr.querySelector('.student-grid-feegroup');
+        if (feeGroupSelect){
+          feeGroupSelect.value = String(prefill.feeGroupId);
+        }
+      }
+      const paymentSelect = detailTr.querySelector('[data-field="paymentPlan"]');
+      if (paymentSelect){
+        paymentSelect.value = defaults.paymentPlan;
+      }
+      updateBulkRowMetrics();
+      return tr;
+    }
+
+    function addBulkRows(count = 1){
+      for (let i = 0; i < count; i += 1){
+        createBulkRow();
+      }
+    }
+
+    function resetBulkRows(){
+      if (!bulkStudentElements.rows) return;
+      bulkStudentElements.rows.innerHTML = '';
+      bulkStudentRowSeq = 0;
+      addBulkRows(BULK_DEFAULT_ROW_COUNT);
+      setBulkStatus('Ready for bulk entry.');
+      updateBulkRowMetrics();
+    }
+
+    async function handleBulkSave(){
+      if (!bulkStudentElements.rows || bulkStudentSaving) return;
+      const rows = Array.from(bulkStudentElements.rows.querySelectorAll('tr[data-row-id]'));
+      if (!rows.length){
+        setBulkStatus('Add at least one row before saving.', 'error');
+        return;
+      }
+      let validationFailed = false;
+      rows.forEach(row => {
+        const name = readBulkField(row, 'name').trim();
+        if (!name){
+          validationFailed = true;
+          markBulkRow(row, 'error', 'Full name is required.');
+          const input = getBulkFieldElement(row, 'name');
+          if (input){
+            input.classList.add('ring-1','ring-red-400');
+          }
+        } else {
+          markBulkRow(row, 'idle', '');
+        }
+      });
+      if (validationFailed){
+        setBulkStatus('Please fill in the required full name field before saving.', 'error');
+        return;
+      }
+      setBulkSavingState(true);
+      setBulkStatus('Saving rows...', 'muted');
+      const results = [];
+      for (const row of rows){
+        const payload = collectBulkPayload(row);
+        try {
+          const existingId = row.dataset.existingId ? Number(row.dataset.existingId) : null;
+          if (existingId){
+            const existingStudent = await db.students.get(existingId);
+            const resolvedStatus = row.dataset.existingStatus || existingStudent?.status || 'Active';
+            const updatePayload = { ...payload, status: resolvedStatus };
+            await db.students.update(existingId, updatePayload);
+            if (updatePayload.feeGroupId){
+              await ensureInvoicesForFeeGroup(existingId, updatePayload.feeGroupId);
+            }
+            if (existingStudent && existingStudent.registrationDate !== updatePayload.registrationDate){
+              await adjustInvoicesForRegistrationDate(existingId, updatePayload.registrationDate);
+            }
+            await syncStudentCourses(existingId, updatePayload.programId);
+            results.push({ row, ok: true, message: 'Updated.' });
+          } else {
+            await createStudentRecord(payload);
+            results.push({ row, ok: true, message: 'Saved.' });
+          }
+        } catch (err){
+          console.error('Failed to save bulk student row', err);
+          results.push({ row, ok: false, message: err?.message || 'Unable to save row.' });
+        }
+      }
+      const failures = results.filter(res => !res.ok);
+      const successes = results.filter(res => res.ok);
+      if (successes.length){
         await renderStudents();
         await loadProgramsIntoSelects();
         await renderLedgerOverview();
-      });
+      }
+      successes.forEach(res => markBulkRow(res.row, 'success', res.message || 'Saved.'));
+      failures.forEach(res => markBulkRow(res.row, 'error', res.message));
+      setBulkSavingState(false);
+      if (!failures.length){
+        setBulkStatus(`Saved ${successes.length} student${successes.length === 1 ? '' : 's'}.`, 'success');
+        resetBulkRows();
+      } else {
+        setBulkStatus(`Saved ${successes.length}. ${failures.length} row${failures.length === 1 ? '' : 's'} require attention.`, 'error');
+        successes.forEach(res => res.row.remove());
+        if (!bulkHasRows()){
+          createBulkRow();
+        }
+        renumberBulkRows();
+      }
     }
 
-    if (studentCancelBtn){
-      studentCancelBtn.addEventListener('click', () => {
-        editingStudentId = null;
-        setStudentFormMode(false);
-        document.getElementById('form-student').reset();
-        ensureStudentRegistrationDefault();
-      });
+    function wireBulkStudentGrid(){
+      if (bulkStudentElements.addOne){
+        bulkStudentElements.addOne.addEventListener('click', () => {
+          if (bulkStudentSaving) return;
+          addBulkRows(1);
+        });
+      }
+      if (bulkStudentElements.addFive){
+        bulkStudentElements.addFive.addEventListener('click', () => {
+          if (bulkStudentSaving) return;
+          addBulkRows(5);
+        });
+      }
+      if (bulkStudentElements.clear){
+        bulkStudentElements.clear.addEventListener('click', () => {
+          if (bulkStudentSaving) return;
+          resetBulkRows();
+        });
+      }
+      if (bulkStudentElements.save){
+        bulkStudentElements.save.addEventListener('click', handleBulkSave);
+      }
+      if (bulkStudentElements.rows){
+        bulkStudentElements.rows.addEventListener('click', (ev) => {
+          const toggleBtn = ev.target.closest('[data-action="bulk-toggle-row"]');
+          if (toggleBtn){
+            const row = getBulkMainRowFromElement(toggleBtn);
+            if (!row) return;
+            const detailRow = getBulkDetailRow(row);
+            if (!detailRow) return;
+            const isHidden = detailRow.classList.contains('hidden');
+            detailRow.classList.toggle('hidden', !isHidden);
+            toggleBtn.textContent = isHidden ? 'Hide' : 'Details';
+            return;
+          }
+          const removeBtn = ev.target.closest('[data-action="bulk-remove-row"]');
+          if (!removeBtn || bulkStudentSaving) return;
+          const row = getBulkMainRowFromElement(removeBtn);
+          if (row){
+            const detailRow = getBulkDetailRow(row);
+            detailRow?.remove();
+            row.remove();
+            if (!bulkHasRows()){
+              createBulkRow();
+            }
+            renumberBulkRows();
+          }
+        });
+        bulkStudentElements.rows.addEventListener('input', (ev) => {
+          const row = getBulkMainRowFromElement(ev.target);
+          if (row){
+            markBulkRow(row, 'idle', '');
+          }
+        });
+      }
     }
+    wireBulkStudentGrid();
+    resetBulkRows();
 
+    async function primeStudentGridOptions(){
+      try {
+        if (!db.isOpen()){
+          await db.open();
+        }
+        const [programs, feeGroups] = await Promise.all([
+          db.programs.toArray(),
+          db.feeGroups.toArray()
+        ]);
+        updateStudentGridProgramOptionsCache(programs);
+        updateStudentGridFeeGroupOptionsCache(feeGroups, programs);
+      } catch (err){
+        console.error('Failed to prime student grid dropdowns', err);
+      }
+    }
+    primeStudentGridOptions();
 
     const programTable = document.getElementById('tbl-programs');
     if (programTable){
@@ -1637,7 +2182,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
           form.elements['level'].value = record.level || '';
           form.elements['mode'].value = record.mode || '';
           form.elements['projectType'].value = record.projectType || '';
-          form.elements['duration'].value = record.duration ?? '';
+          form.elements['duration'].value = record.duration - '';
           await loadProgramCoursesIntoDrafts(id);
           editingProgramId = id;
           setProgramFormMode(true);
@@ -1704,20 +2249,32 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
             const s = await db.students.get(id);
             if (!s) return;
             await loadProgramsIntoSelects();
-            const form = document.getElementById('form-student');
-            form.elements['studentId'].value = s.studentId || '';
-            form.elements['name'].value = s.name || '';
-            form.elements['email'].value = s.email || '';
-            form.elements['phone'].value = s.phone || '';
-            form.elements['registrationDate'].value = s.registrationDate || '';
-            form.elements['intake'].value = s.intake || '';
-            form.elements['programId'].value = s.programId || '';
-            form.elements['feeGroupId'].value = s.feeGroupId || '';
-            form.elements['paymentPlan'].value = s.paymentPlan || 'lump';
-            form.elements['status'].value = s.status || 'Active';
-            editingStudentId = id;
-            setStudentFormMode(true);
-            window.scrollTo({ top: form.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
+            const row = createBulkRow({
+              id: s.id,
+              studentId: s.studentId || '',
+              name: s.name || '',
+              email: s.email || '',
+              phone: s.phone || '',
+              registrationDate: s.registrationDate || '',
+              intake: s.intake || '',
+              programId: s.programId || '',
+              feeGroupId: s.feeGroupId || '',
+              paymentPlan: s.paymentPlan || 'lump',
+              status: s.status || 'Active'
+            });
+            if (row){
+              row.dataset.existingId = String(s.id);
+              row.dataset.existingStatus = s.status || 'Active';
+              const detailRow = getBulkDetailRow(row);
+              detailRow?.classList.remove('hidden');
+              const toggleBtn = row.querySelector('[data-action="bulk-toggle-row"]');
+              if (toggleBtn) toggleBtn.textContent = 'Hide';
+              const nameInput = getBulkFieldElement(row, 'name');
+              nameInput?.focus();
+            }
+            if (bulkStudentElements.panel){
+              window.scrollTo({ top: bulkStudentElements.panel.getBoundingClientRect().top + window.scrollY - 80, behavior: 'smooth' });
+            }
           } else if (action === 'delete-student'){
             const confirmDel = confirm('Delete this student and related invoices/payments/results?');
             if (!confirmDel) return;
@@ -1741,9 +2298,6 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
               updateProfileSearchSelectionHighlight();
               await renderStudentProfile('');
             }
-            editingStudentId = null;
-            setStudentFormMode(false);
-            document.getElementById('form-student').reset();
             ensureStudentRegistrationDefault();
             await renderStudents();
             await renderResults();
@@ -1770,44 +2324,53 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
 
     // Live grade preview when typing mark
     const formResult = document.getElementById('form-result');
-    const markInput = formResult.querySelector('input[name="mark"]');
     const preview = document.getElementById('result-preview');
-    markInput.addEventListener('input', () => {
-      const m = Number(markInput.value);
-      const g = gradeFromMark(m);
-      preview.textContent = isNaN(m) ? '' : `Grade Preview: ${g.grade}, Point ${g.point.toFixed(2)}`;
-    });
-
-    document.getElementById('form-result').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      const data = Object.fromEntries(fd.entries());
-      if (!data.studentId || !data.courseId) return alert('Select student and course');
-      const course = await db.courses.get(Number(data.courseId));
-      const credit = Number(course?.credit) || 0;
-      const m = Number(data.mark);
-      const g = gradeFromMark(m);
-      await db.results.add({
-        studentIdFk: Number(data.studentId),
-        courseIdFk: Number(data.courseId),
-        semester: data.semester.trim(),
-        mark: m,
-        grade: g.grade,
-        point: g.point,
-        credit: credit
+    if (formResult && preview){
+      const markInput = formResult.querySelector('input[name="mark"]');
+      if (markInput){
+        markInput.addEventListener('input', () => {
+          const m = Number(markInput.value);
+          const g = gradeFromMark(m);
+          preview.textContent = isNaN(m) ? '' : `Grade Preview: ${g.grade}, Point ${g.point.toFixed(2)}`;
+        });
+      }
+      formResult.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const data = Object.fromEntries(fd.entries());
+        if (!data.studentId || !data.courseId) return alert('Select student and course');
+        const course = await db.courses.get(Number(data.courseId));
+        const credit = Number(course?.credit) || 0;
+        const m = Number(data.mark);
+        const g = gradeFromMark(m);
+        await db.results.add({
+          studentIdFk: Number(data.studentId),
+          courseIdFk: Number(data.courseId),
+          semester: data.semester.trim(),
+          mark: m,
+          grade: g.grade,
+          point: g.point,
+          credit: credit
+        });
+        e.target.reset();
+        preview.textContent = '';
+        await renderResults();
+        alert('Result saved.');
       });
-      e.target.reset();
-      preview.textContent = '';
-      await renderResults();
-      alert('Result saved.');
-    });
+    }
 
-    document.getElementById('refresh-programs').addEventListener('click', renderPrograms);
+    const refreshProgramsBtn = document.getElementById('refresh-programs');
+    if (refreshProgramsBtn){
+      refreshProgramsBtn.addEventListener('click', renderPrograms);
+    }
     const refreshStudentsBtn = document.getElementById('refresh-students');
     if (refreshStudentsBtn){
       refreshStudentsBtn.addEventListener('click', () => renderStudents());
     }
-    document.getElementById('refresh-results').addEventListener('click', renderResults);
+    const refreshResultsBtn = document.getElementById('refresh-results');
+    if (refreshResultsBtn){
+      refreshResultsBtn.addEventListener('click', renderResults);
+    }
 
     let editingAgentId = null;
     const agentSubmitBtn = document.getElementById('agent-submit');
@@ -2051,6 +2614,23 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
         await setCurrentLedgerStudent(null);
       });
     }
+    if (ledgerModalClose){
+      ledgerModalClose.addEventListener('click', () => {
+        closeLedgerModal();
+      });
+    }
+    if (ledgerModal){
+      ledgerModal.addEventListener('click', (e) => {
+        if (e.target === ledgerModal){
+          closeLedgerModal();
+        }
+      });
+    }
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape' && isLedgerModalOpen()){
+        closeLedgerModal();
+      }
+    });
 
     // Ledger: payment table actions (edit/remove)
     const ledgerInvoiceRows = document.getElementById('rows-ledger-invoices');
@@ -2202,91 +2782,96 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
     }
 
     // Ledger: payment apply / edit
-    document.getElementById('form-ledger-payment').addEventListener('submit', async (e) => {
-      e.preventDefault();
-      const fd = new FormData(e.target);
-      const data = Object.fromEntries(fd.entries());
-      const sid = currentLedgerStudentId;
-      if (!sid) return alert('Select a student from the ledger list first.');
-      const amount = Number(data.amount);
-      if (isNaN(amount) || amount <= 0) return alert('Amount must be positive.');
-      const type = data.type || 'credit';
-      const invoiceId = selectedLedgerInvoiceId ? Number(selectedLedgerInvoiceId) : null;
-      if ((type === 'credit' || type === 'discount') && !invoiceId && !editingLedgerPaymentId){
-        return alert('Select an invoice to apply the payment/discount.');
-      }
-
-      const isEditing = !!editingLedgerPaymentId;
-      let editReason = '';
-      if (isEditing){
-        editReason = prompt('Enter a reason for editing this payment:') || '';
-        editReason = editReason.trim();
-        if (!editReason) return alert('Reason is required to edit a payment.');
-      }
-
-      try {
-        if (isEditing){
-          await updateLedgerPayment({
-            paymentId: editingLedgerPaymentId,
-            studentId: Number(sid),
-            invoiceId,
-            type,
-            amount,
-            note: (data.note || '').toString().trim(),
-            date: data.date,
-            reason: editReason
-          });
-        } else if (type === 'debit' && !invoiceId){
-          // create a new manual charge invoice
-          const feeGroupId = (await db.students.get(Number(sid)))?.feeGroupId || null;
-          const today = data.date || new Date().toISOString().slice(0,10);
-          const newInvId = await db.invoices.add({
-            studentIdFk: Number(sid),
-            feeGroupId,
-            feeType: 'manual',
-            amount: amount,
-            paid: 0,
-            status: 'open',
-            createdAt: today
-          });
-          await db.payments.add({
-            studentIdFk: Number(sid),
-            feeGroupId,
-            invoiceIdFk: newInvId,
-            type: 'debit',
-            amount,
-            note: (data.note || '').toString().trim(),
-            date: today,
-            lastChangeReason: ''
-          });
-          selectedLedgerInvoiceId = newInvId;
-        } else {
-          await applyPaymentToInvoice({
-            studentId: Number(sid),
-            invoiceId,
-            type,
-            amount,
-            note: (data.note || '').toString().trim(),
-            date: data.date
-          });
+    const ledgerPaymentForm = document.getElementById('form-ledger-payment');
+    if (ledgerPaymentForm){
+      ledgerPaymentForm.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        const fd = new FormData(e.target);
+        const data = Object.fromEntries(fd.entries());
+        const sid = currentLedgerStudentId;
+        if (!sid) return alert('Select a student from the ledger list first.');
+        const amount = Number(data.amount);
+        if (isNaN(amount) || amount <= 0) return alert('Amount must be positive.');
+        const type = data.type || 'credit';
+        const invoiceId = selectedLedgerInvoiceId ? Number(selectedLedgerInvoiceId) : null;
+        if ((type === 'credit' || type === 'discount') && !invoiceId && !editingLedgerPaymentId){
+          return alert('Select an invoice to apply the payment/discount.');
         }
-      } catch (err){
-        console.error(err);
-        alert(err.message || 'Unable to apply payment.');
-        return;
-      }
 
-      e.target.reset();
-      editingLedgerPaymentId = null;
-      setLedgerPaymentFormMode(false);
-      await renderLedger(sid);
-      await renderPayments(renderLedgerOverview);
-      await renderLedgerOverview();
-      alert(isEditing ? 'Payment updated.' : 'Saved.');
-    });
+        const isEditing = !!editingLedgerPaymentId;
+        let editReason = '';
+        if (isEditing){
+          editReason = prompt('Enter a reason for editing this payment:') || '';
+          editReason = editReason.trim();
+          if (!editReason) return alert('Reason is required to edit a payment.');
+        }
+
+        try {
+          if (isEditing){
+            await updateLedgerPayment({
+              paymentId: editingLedgerPaymentId,
+              studentId: Number(sid),
+              invoiceId,
+              type,
+              amount,
+              note: (data.note || '').toString().trim(),
+              date: data.date,
+              reason: editReason
+            });
+          } else if (type === 'debit' && !invoiceId){
+            // create a new manual charge invoice
+            const feeGroupId = (await db.students.get(Number(sid)))?.feeGroupId || null;
+            const today = data.date || new Date().toISOString().slice(0,10);
+            const newInvId = await db.invoices.add({
+              studentIdFk: Number(sid),
+              feeGroupId,
+              feeType: 'manual',
+              amount: amount,
+              paid: 0,
+              status: 'open',
+              createdAt: today
+            });
+            await db.payments.add({
+              studentIdFk: Number(sid),
+              feeGroupId,
+              invoiceIdFk: newInvId,
+              type: 'debit',
+              amount,
+              note: (data.note || '').toString().trim(),
+              date: today,
+              lastChangeReason: ''
+            });
+            selectedLedgerInvoiceId = newInvId;
+          } else {
+            await applyPaymentToInvoice({
+              studentId: Number(sid),
+              invoiceId,
+              type,
+              amount,
+              note: (data.note || '').toString().trim(),
+              date: data.date
+            });
+          }
+        } catch (err){
+          console.error(err);
+          alert(err.message || 'Unable to apply payment.');
+          return;
+        }
+
+        e.target.reset();
+        editingLedgerPaymentId = null;
+        setLedgerPaymentFormMode(false);
+        await renderLedger(sid);
+        await renderPayments(renderLedgerOverview);
+        await renderLedgerOverview();
+        alert(isEditing ? 'Payment updated.' : 'Saved.');
+      });
+    }
 
     // ---------------------- Reports ----------------------
-    document.getElementById('btn-show-report').addEventListener('click', async () => {
+    const showReportBtn = document.getElementById('btn-show-report');
+    if (showReportBtn){
+      showReportBtn.addEventListener('click', async () => {
       const sel = document.getElementById('report-student');
       const sid = sel.value;
       if (!sid) return alert('Please select a student');
@@ -2297,11 +2882,13 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       const reportContainer = document.getElementById('report-container');
 
       if (!semesters.length){
+        const safeName = safeText(student?.name || '-');
+        const safeIntake = safeText(student?.intake || '-');
         summary.innerHTML = `
           <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
-            <div><span class="text-gray-500">Name</span><div class="font-medium">${student?.name || '-'}</div></div>
+            <div><span class="text-gray-500">Name</span><div class="font-medium">${safeName}</div></div>
             <div><span class="text-gray-500">Program</span><div class="font-medium" id="summary-program">-</div></div>
-            <div><span class="text-gray-500">Intake</span><div class="font-medium">${student?.intake || '-'}</div></div>
+            <div><span class="text-gray-500">Intake</span><div class="font-medium">${safeIntake}</div></div>
             <div><span class="text-gray-500">CGPA</span><div class="font-medium">0.00</div></div>
           </div>
           <p class="mt-2 text-sm text-gray-500">No results recorded yet for this student.</p>
@@ -2315,11 +2902,13 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       }
 
       // Summary box (with results)
+      const safeName = safeText(student?.name || '-');
+      const safeIntake = safeText(student?.intake || '-');
       summary.innerHTML = `
         <div class="grid grid-cols-1 md:grid-cols-4 gap-2">
           <div>
             <span class="text-gray-500">Name</span>
-            <div class="font-medium">${student?.name || '-'}</div>
+            <div class="font-medium">${safeName}</div>
           </div>
           <div>
             <span class="text-gray-500">Program</span>
@@ -2327,7 +2916,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
           </div>
           <div>
             <span class="text-gray-500">Intake</span>
-            <div class="font-medium">${student?.intake || '-'}</div>
+            <div class="font-medium">${safeIntake}</div>
           </div>
           <div>
             <span class="text-gray-500">CGPA</span>
@@ -2351,8 +2940,9 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
         const d = detail[sem];
         const gpa = d.credits > 0 ? (d.qp / d.credits) : 0;
         const card = document.createElement('div');
+        const safeSemester = safeText(sem);
         card.innerHTML = `
-          <div class="mb-2 text-sm text-gray-600">Semester: <span class="font-medium">${sem}</span></div>
+          <div class="mb-2 text-sm text-gray-600">Semester: <span class="font-medium">${safeSemester}</span></div>
           <div class="overflow-x-auto">
             <table class="min-w-full text-sm">
               <thead>
@@ -2370,31 +2960,39 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
           </div>
           <div class="mt-2 text-sm">
             Semester Credits: <span class="font-medium">${d.credits}</span>
-            Â· GPA: <span class="font-medium">${gpa.toFixed(2)}</span>
+            - GPA: <span class="font-medium">${gpa.toFixed(2)}</span>
           </div>
         `;
         const tbody = card.querySelector('tbody');
         d.rows.forEach((r, i) => {
           const c = cmap[r.courseIdFk];
           const tr = document.createElement('tr');
+          const courseLabel = c ? `${c.code} - ${c.title}` : '-';
+          const safeCourse = safeText(courseLabel);
+          const safeCredit = safeText(r.credit ?? '-');
+          const safeMark = safeText(r.mark ?? '-');
+          const safeGrade = safeText(r.grade ?? '-');
+          const pointValue = Number(r.point);
+          const safePoint = Number.isFinite(pointValue) ? pointValue.toFixed(2) : safeText(r.point ?? '-');
           tr.innerHTML = `
             <td class="py-2 pr-4">${i+1}</td>
-            <td class="py-2 pr-4">${c ? `${c.code} â€” ${c.title}` : '-'}</td>
-            <td class="py-2 pr-4">${r.credit ?? '-'}</td>
-            <td class="py-2 pr-4">${r.mark ?? '-'}</td>
-            <td class="py-2 pr-4">${r.grade ?? '-'}</td>
-            <td class="py-2 pr-4">${(r.point ?? 0).toFixed(2)}</td>
+            <td class="py-2 pr-4">${safeCourse}</td>
+            <td class="py-2 pr-4">${safeCredit}</td>
+            <td class="py-2 pr-4">${safeMark}</td>
+            <td class="py-2 pr-4">${safeGrade}</td>
+            <td class="py-2 pr-4">${safePoint}</td>
           `;
           tbody.appendChild(tr);
         });
         wrap.appendChild(card);
       }
     });
+    }
 
     // ---------------------- IMPORT (Excel) ----------------------
     async function handleImportExcel(file){
       const status = document.getElementById('import-status');
-      status.textContent = 'Importingâ€¦';
+      status.textContent = 'Importing...';
       const data = await file.arrayBuffer();
       const wb = XLSX.read(data, {type:'array'});
 
@@ -2416,6 +3014,12 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
       const feeGroupRecords = await db.feeGroups.toArray();
       const fgmapByName = Object.fromEntries(feeGroupRecords.map(fg=>[(fg.name || '').toString().trim(), fg.id]));
       const fgmapByCode = Object.fromEntries(feeGroupRecords.map(fg=>[formatFeeGroupCode(fg.agentId, fg.sequence).toUpperCase(), fg.id]));
+      const existingStudents = await db.students.toArray();
+      const studentById = new Map(
+        existingStudents
+          .filter(s => s && s.studentId)
+          .map(s => [String(s.studentId).trim(), s])
+      );
       let addedStudents = 0;
 
       for (const r of rows){
@@ -2423,10 +3027,7 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
         if (!name) continue;
 
         const studentId = (r.studentId || '').toString().trim();
-        let existing = null;
-        if (studentId){
-          existing = await db.students.where('studentId').equals(studentId).first();
-        }
+        const existing = studentId ? studentById.get(studentId) : null;
 
         const programName = (r.program || '').toString().trim();
         const programMqa = (r.programMqa || r.programCode || r.mqaCode || '').toString().trim().toUpperCase();
@@ -2466,6 +3067,9 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
             await adjustInvoicesForRegistrationDate(newId, registrationDate);
           }
           await syncStudentCourses(newId, programId);
+          if (studentId){
+            studentById.set(studentId, { id: newId });
+          }
         }
       }
 
@@ -2533,49 +3137,69 @@ import { exportBackupZip, restoreBackupZip } from './services/backupService.js';
     }
 
     // ---------------------- Button wiring ----------------------
-    document.getElementById('export-students').addEventListener('click', exportStudents);
-    document.getElementById('export-programs').addEventListener('click', exportPrograms);
-    document.getElementById('export-courses').addEventListener('click', exportCourses);
-    document.getElementById('export-results').addEventListener('click', exportResults);
-    document.getElementById('export-agents').addEventListener('click', exportAgents);
-    document.getElementById('export-feegroups').addEventListener('click', exportFeeGroups);
-    document.getElementById('export-payments').addEventListener('click', exportPayments);
-    document.getElementById('export-invoices').addEventListener('click', exportInvoices);
-
-    document.getElementById('btn-import').addEventListener('click', async () => {
-      const f = document.getElementById('import-file').files[0];
-      if (!f) return alert('Choose an Excel file first.');
-      await handleImportExcel(f);
+    const exportButtons = [
+      ['export-students', exportStudents],
+      ['export-programs', exportPrograms],
+      ['export-courses', exportCourses],
+      ['export-results', exportResults],
+      ['export-agents', exportAgents],
+      ['export-feegroups', exportFeeGroups],
+      ['export-payments', exportPayments],
+      ['export-invoices', exportInvoices],
+    ];
+    exportButtons.forEach(([id, handler]) => {
+      const btn = document.getElementById(id);
+      if (btn){
+        btn.addEventListener('click', handler);
+      }
     });
 
-    document.getElementById('btn-backup').addEventListener('click', exportBackupZip);
+    const importBtn = document.getElementById('btn-import');
+    if (importBtn){
+      importBtn.addEventListener('click', async () => {
+        const f = document.getElementById('import-file').files[0];
+        if (!f) return alert('Choose an Excel file first.');
+        await handleImportExcel(f);
+      });
+    }
+
+    const backupBtn = document.getElementById('btn-backup');
+    if (backupBtn){
+      backupBtn.addEventListener('click', exportBackupZip);
+    }
     const backupTopBtn = document.getElementById('btn-backup-top');
     if (backupTopBtn){
       backupTopBtn.addEventListener('click', exportBackupZip);
     }
-    document.getElementById('btn-restore').addEventListener('click', async () => {
-      const f = document.getElementById('restore-file').files[0];
-      if (!f) return alert('Choose a .zip backup file first.');
-      const statusEl = document.getElementById('restore-status');
-      await restoreBackupZip(f, statusEl, async () => {
-        await Promise.all([
-          renderPrograms(),
-          renderStudents(),
-          renderCourses(),
-          renderResults(),
-          renderAgents(),
-          renderFeeGroups(),
-          renderPayments(renderLedgerOverview),
-          loadProgramsIntoSelects()
-        ]);
+    const restoreBtn = document.getElementById('btn-restore');
+    if (restoreBtn){
+      restoreBtn.addEventListener('click', async () => {
+        const f = document.getElementById('restore-file').files[0];
+        if (!f) return alert('Choose a .zip backup file first.');
+        const statusEl = document.getElementById('restore-status');
+        await restoreBackupZip(f, statusEl, async () => {
+          await Promise.all([
+            renderPrograms(),
+            renderStudents(),
+            renderCourses(),
+            renderResults(),
+            renderAgents(),
+            renderFeeGroups(),
+            renderPayments(renderLedgerOverview),
+            loadProgramsIntoSelects()
+          ]);
+        });
       });
-    });
+    }
     const resetBtn = document.getElementById('btn-reset-data');
     if (resetBtn){
       resetBtn.addEventListener('click', resetAllData);
     }
     // ---------------------- Init ----------------------
     (async function init(){
+      if (!db.isOpen()){
+        await db.open();
+      }
       await renderPrograms();
       await renderStudents();
       await renderCourses();

@@ -1,0 +1,35 @@
+{
+   "background": {
+      "service_worker": "background.js"
+   },
+   "content_scripts": [ {
+      "css": [ "styles.css" ],
+      "js": [ "content.js" ],
+      "matches": [ "https://*.zoom.us/*", "https://zoomgov.com/*", "https://www.goto.com/*", "https://*.gotowebinar.com/*", "*://meet.google.com/*" ]
+   } ],
+   "content_security_policy": {
+      "extension_pages": "script-src 'self'; object-src 'self'"
+   },
+   "description": "It admits automatically users from outside the organisation!",
+   "host_permissions": [ "\u003Call_urls>" ],
+   "icons": {
+      "128": "images/auto_admit128.png",
+      "16": "images/auto_admit16.png",
+      "32": "images/auto_admit32.png",
+      "48": "images/auto_admit48.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAmCyTC6+2lAWpr3sESukj6cJvH7iHVhk0Me+pdQcmQhn5f6Zj2zJ6j7ihydmDgarf8YeBVj2GQU54H+nmrSWZYBeJi+q8u00m8Dr0pzVqKjpoM7yulZyJkgRglE5FINzuhMRFwliL5/hSEVf7bglksjM/5dsRoioZL8fG0GNcs4NNjPxumqg6fWh5lW2X54fAIT4DzoxbcNwhUvDN1b1iT9hJpAWgu0dWSuMtJrbFs7Nc8HlAjolh8mQpUhu+ZGutHszLTazCUlEZY02OJFBXYfJ5ttoj71AFzsTAv+So5QXixEAJqa5b7pl6FLtD985x3SpfGLMqv2WbZvGFt4a8LwIDAQAB",
+   "manifest_version": 3,
+   "name": "Meet auto admit",
+   "options_ui": {
+      "open_in_tab": false,
+      "page": "options.html"
+   },
+   "permissions": [ "storage" ],
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "10.0",
+   "web_accessible_resources": [ {
+      "matches": [ "https://*.zoom.us/*", "https://zoomgov.com/*", "https://www.goto.com/*", "https://*.gotowebinar.com/*", "*://meet.google.com/*" ],
+      "resources": [ "/images/record.png", "/images/recimage.png", "/images/howto.jpg" ]
+   } ]
+}

@@ -1,0 +1,28 @@
+{
+   "background": {
+      "service_worker": "background_service.js"
+   },
+   "content_scripts": [ {
+      "js": [ "gmassloaderlocal.js" ],
+      "matches": [ "http://mail.google.com/*", "https://mail.google.com/*", "https://inbox.google.com/*", "http://inbox.google.com/*" ],
+      "run_at": "document_end",
+      "world": "MAIN"
+   }, {
+      "css": [ "Gmass.css", "select2.css", "selectize.css", "custom.css" ],
+      "js": [ "jquery.js", "gmass-globals.js", "gmass-DEPLOY-MANIFESTV3.js", "gmasssdk.js", "jquery.bpopup.min.js", "select2.full.js", "selectize.js", "walkthrough/walkthrough.js" ],
+      "matches": [ "http://mail.google.com/*", "https://mail.google.com/*", "https://inbox.google.com/*", "http://inbox.google.com/*" ],
+      "run_at": "document_end"
+   } ],
+   "description": "A powerful mass email and mail merge system for Gmail.",
+   "icons": {
+      "128": "GMass128.png",
+      "16": "GMass16.png",
+      "48": "GMass48.png"
+   },
+   "key": "MIIBIjANBgkqhkiG9w0BAQEFAAOCAQ8AMIIBCgKCAQEAm5q6ucN6ORO2q8FLZYQK350qGHJrfubBK/FBa1QQMNVfxaJoTG7L4MlfgqgKtewTxBxe2j/RGUb+g+y8hnsLygJjDUA9Bc5OCqxRiLhUbMf7Cgx4SDRR6gSqSJlaofmH9w7lBQujcPYZp74Nto9kPHzYN6uW7ltQ89PG4lua0wHycaHupptesoNElf6WAEtmFTILOjVEVemGCdpKnHVYMOKWb8H0PWZ8KapSzbtXntEm1o+r186m7ktcQxxkkw0p0KpaAFk1/PVTtEsqOUgm2WvTUJexgpYDN96/lLYHjl1SowZ6O7loywd3PKk+y3aq3baMwjbdZVvtzXGbXDH8wQIDAQAB",
+   "manifest_version": 3,
+   "name": "GMass: Powerful mail merge for Gmail",
+   "short_name": "GMass",
+   "update_url": "https://clients2.google.com/service/update2/crx",
+   "version": "6.0.40"
+}

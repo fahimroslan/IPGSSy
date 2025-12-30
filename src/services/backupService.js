@@ -17,7 +17,7 @@ export async function exportBackupZip(){
     db.invoices.toArray(),
     db.studentCourses.toArray()
   ]);
-  const meta = { exportedAt: new Date().toISOString(), schemaVersion: 5 };
+  const meta = { exportedAt: new Date().toISOString(), schemaVersion: db.verno };
   zip.file('meta.json', JSON.stringify(meta, null, 2));
   zip.file('programs.json', JSON.stringify(programs));
   zip.file('students.json', JSON.stringify(students));
@@ -34,7 +34,7 @@ export async function exportBackupZip(){
 
 export async function restoreBackupZip(file, statusEl, onDone) {
   const status = statusEl;
-  status.textContent = 'Reading backup…';
+  status.textContent = 'Reading backup...';
   const data = await file.arrayBuffer();
   let zip;
   try {
@@ -54,6 +54,15 @@ export async function restoreBackupZip(file, statusEl, onDone) {
   }
 
   const meta = JSON.parse(await zip.file('meta.json').async('string'));
+  if (meta?.schemaVersion && meta.schemaVersion !== db.verno){
+    const proceed = confirm(
+      `Backup schema v${meta.schemaVersion} differs from current v${db.verno}. Restoring may be incompatible. Continue?`
+    );
+    if (!proceed){
+      status.textContent = 'Cancelled.';
+      return;
+    }
+  }
   const programs = JSON.parse(await zip.file('programs.json').async('string'));
   const students = JSON.parse(await zip.file('students.json').async('string'));
   const courses = JSON.parse(await zip.file('courses.json').async('string'));

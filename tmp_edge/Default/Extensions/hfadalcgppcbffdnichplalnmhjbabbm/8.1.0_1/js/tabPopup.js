@@ -1,0 +1,1 @@
+navigator.cookieEnabled&&Helper.setEventActionFun("initiator","chromeTab");

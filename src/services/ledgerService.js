@@ -51,7 +51,7 @@ export async function getDashboardFinanceSnapshot() {
       pending: totalPending,
       overdue: totalOverdue,
       collectedPct,
-      outstandingCombined: totalPending + totalOverdue,
+      outstandingCombined: totalPending,
     },
   };
 }

@@ -1,0 +1,66 @@
+<!DOCTYPE html>
+<html style="overflow: hidden;">
+
+<head>
+    <meta charset='utf-8'>
+    <meta http-equiv='X-UA-Compatible' content='IE=edge'>
+    <title>Page Title</title>
+    <meta name='viewport' content='width=device-width, initial-scale=1'>
+    <link rel="stylesheet" href="./../css/2faLogin.css" type="text/css" />
+</head>
+<body style="position:relative">
+    <div style="text-align: right;">
+        <img src="../template/images/cancel.png" style="cursor:pointer; position:absolute; right:10px; top:10px;" id="closeGaPopup">
+    </div>
+    <!----------------Two-step authentication------------------------>
+    <div class="factor-box">
+    <div id="gaAuthModalPopup">
+        <h2>Two-step authentication</h2>
+        <p style="height:51px">Open the two-step authentication app on your device to view your authentication code and verify your identity</p>
+        <div class="line"></div>
+        <div class="text-left fac-box1">
+            <label>Enter the six-digit code from the application</label>
+            <input type="text" maxlength="6" pattern="\d{6}" title="Please enter exactly 6 digits" name=""
+                class="fac-txt1" placeholder="_ _ _ _ _ _" id="2faCodeId">
+            <img src="../template/images/mob-icon.png" class="mob">
+        </div>
+        <div class="text-center">
+            <button class="btn btn-fact1 mrt10" id="2faAuthVerifyId">
+                Verify & Login
+            </button>
+            <br>
+            <p class="col-ccc">Don't have your phone?</p>
+            <p class="col-blu">
+                <a href="#" id="open2StepRecBoxId">
+                    Enter a two-step recovery code <img src="../template/images/arow-icon.png">
+                </a>
+            </p>
+        </div>
+    </div>
+    <!-------------------Two-step recovery-------------------------->
+    <div id="recoveryModalPopup" style="display: none;">
+        <h2>Two-step recovery</h2>
+        <p style="height:51px">You can enter one of your recovery codes, we sent you over the email at the time of 2-Step authentication setup, in case you lost access to your mobile device.
+        </p>
+        <div class="line"></div>
+        <div class="text-left fac-box1">
+            <label>Enter the recovery code</label>
+            <input type="text" name="" maxlength="16" class="fac-txt1" placeholder="Enter a recovery code" id="recoveryCodeInput">
+            <img src="../template/images/mob-icon.png" class="mob">
+        </div>
+        <div class="text-center">
+            <button class="btn btn-fact1 mrt10" id="recoveryCodeBtn">Verify & Login</button>
+            <br> <br>
+            <p class="col-blu">
+                <a href="#" id="autheticationCodeBoxId">Authetication code <img src="../template/images/arow-icon.png"></a>
+            </p>
+        </div>
+    </div>
+    <p class="er-msg pd0" id="errorMessageDisplay"></p>
+    </div>
+    <script type="text/javascript" src="../js/main.js"></script>
+    <script type="text/javascript" src="../js/helper.js"></script>
+    <script type="text/javascript" src="../js/2faLogin.js"></script>
+</body>
+
+</html>
